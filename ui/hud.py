@@ -32,12 +32,18 @@ class HUD:
         pyxel.text(x, y + 22, f"HP: {boss.hp}/{boss.max_hp}  Phase: {boss.phase + 1}", 7)
 
     def draw_enemy_hp(self, enemy, x, y):
+        # Safe access for enemy HP (Boss object vs dict)
+        if hasattr(enemy, "hp"):
+            hp_pct = enemy.hp / enemy.max_hp
+            ename = enemy.name
+        else:
+            hp_pct = enemy["hp"] / enemy["max_hp"]
+            ename = enemy["name"]
         bar_w = 80
-        hp_pct = enemy["hp"] / enemy["max_hp"]
-        pyxel.text(x, y, f"{enemy['name']}", 8)
+        pyxel.text(x, y, f"{ename}", 8)
         pyxel.rectb(x, y + 10, bar_w, 6, 5)
         pyxel.rect(x + 1, y + 11, int((bar_w - 2) * hp_pct), 4, 8 if hp_pct > 0.3 else 2)
-        pyxel.text(x, y + 18, f"HP: {enemy['hp']}/{enemy['max_hp']}", 7)
+        pyxel.text(x, y + 18, f"HP: {enemy.hp if hasattr(enemy, 'hp') else enemy['hp']}/{enemy.max_hp if hasattr(enemy, 'max_hp') else enemy['max_hp']}", 7)
 
     def draw_combat_options(self, x, y, mp):
         pyxel.text(x, y, "COMBAT:", 11)

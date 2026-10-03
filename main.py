@@ -427,14 +427,23 @@ class App:
             self.screen_shake = 8
             self.sound.play(3)
         else:
-            base_atk = enemy["atk"]
+            # Safe access for enemy ATK (Boss object vs dict)
+            if hasattr(enemy, "atk"):
+                base_atk = enemy.atk
+            else:
+                base_atk = enemy.get("atk", 1)
             roll = random.randint(1, 6)
             dmg = max(1, base_atk + roll // 2 - self.player.defense)
             self.player.hp -= dmg
             self.particles.add_damage_numbers(30, 30, dmg, 8)
             self.particles.add_blood_effect(30, 30)
-            self.hud.add_log(f"{enemy['name']} counterattacks! HP -{dmg}")
-            self.combat_log.append(f"{enemy['name']} deals {dmg} damage")
+            # Safe enemy name display
+            if hasattr(enemy, "name"):
+                ename = enemy.name
+            else:
+                ename = enemy["name"]
+            self.hud.add_log(f"{ename} counterattacks! HP -{dmg}")
+            self.combat_log.append(f"{ename} deals {dmg} damage")
             self.screen_shake = 6
             self.sound.play(3)
 
