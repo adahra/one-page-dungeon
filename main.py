@@ -710,13 +710,21 @@ class App:
         
         enemy = self.boss if self.state == GameState.BOSS_COMBAT else self.grid[self.player.y][self.player.x].monster
         
+        # Get enemy name safely (Boss object has .name, dict has ["name"])
+        if hasattr(enemy, "name"):
+            ename = enemy.name
+            ehp = f"{enemy.hp}/{enemy.max_hp}"
+        else:
+            ename = enemy["name"]
+            ehp = f"{enemy['hp']}/{enemy['max_hp']}"
+        
         # Enemy sprite area
-        pyxel.text(100 + sx, 30 + sy, enemy["name"], 8)
-        pyxel.text(100 + sx, 40 + sy, f"HP: {enemy['hp']}/{enemy['max_hp']}", 7)
+        pyxel.text(100 + sx, 30 + sy, ename, 8)
+        pyxel.text(100 + sx, 40 + sy, f"HP: {ehp}", 7)
         
         # Simple enemy representation
         ex, ey = 180 + sx, 70 + sy
-        if "Skull" in enemy["name"]:
+        if "Skull" in ename:
             pyxel.circ(ex, ey, 20, 8)
             pyxel.circ(ex - 6, ey - 4, 3, 0)
             pyxel.circ(ex + 6, ey - 4, 3, 0)
