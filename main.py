@@ -354,7 +354,13 @@ class App:
         if hasattr(enemy, "hp"):
             if enemy.hp <= 0:
                 enemy.hp = 0
-                xp_gain = enemy.get("xp", 10) if not hasattr(enemy, "get") else 10
+                # Get XP gain safely
+                if hasattr(enemy, "xp"):
+                    xp_gain = enemy.xp
+                elif hasattr(enemy, "get"):
+                    xp_gain = enemy.get("xp", 10)
+                else:
+                    xp_gain = 10
                 gold_gain = random.randint(1, 3) * self.current_floor
                 self.player.add_xp(xp_gain)
                 self.player.add_gold(gold_gain)
