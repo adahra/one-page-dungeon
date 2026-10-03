@@ -335,8 +335,8 @@ class App:
 
         enemy["hp"] -= damage
         self.particles.add_damage_numbers(180, 80, damage, 10)
-        self.hud.add_log(f"You hit {enemy['name']} for {dmg}!")
-        self.combat_log.append(f"You deal {dmg} damage")
+        self.hud.add_log(f"You hit {enemy['name']} for {damage}!")
+        self.combat_log.append(f"You deal {damage} damage")
         self.screen_shake = 4
 
         if enemy["hp"] <= 0:

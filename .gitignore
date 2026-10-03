@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.dungeon_save_*.json
+dungeon_save.json
+dungeon_highscores.json
+sound.pyxel
+*.log

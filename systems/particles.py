@@ -45,8 +45,8 @@ class ParticleSystem:
             spd = random.uniform(0.5, speed)
             self.particles.append(Particle(
                 x, y,
-                spd * random.cos(angle),
-                spd * random.sin(angle),
+                spd * math.cos(angle),
+                spd * math.sin(angle),
                 color,
                 random.randint(15, 30),
                 random.randint(1, 2)
@@ -82,8 +82,8 @@ class ParticleSystem:
             spd = random.uniform(1, 3)
             self.particles.append(Particle(
                 x, y,
-                spd * random.cos(angle),
-                spd * random.sin(angle),
+                spd * math.cos(angle),
+                spd * math.sin(angle),
                 random.choice([12, 5, 13]),
                 random.randint(20, 40),
                 2
@@ -107,8 +107,8 @@ class ParticleSystem:
             spd = random.uniform(1, 4)
             self.particles.append(Particle(
                 x, y,
-                spd * random.cos(angle),
-                spd * random.sin(angle),
+                spd * math.cos(angle),
+                spd * math.sin(angle),
                 random.choice([10, 7, 9, 14]),
                 random.randint(30, 60),
                 2
