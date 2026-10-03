@@ -333,31 +333,64 @@ class App:
             self.sound.play(2)
             self.particles.add_magic_effect(180, 100)
 
-        enemy["hp"] -= damage
+        # Safely modify enemy HP (Boss object vs dict)
+        if hasattr(enemy, "hp"):
+            enemy.hp -= damage
+            hp_bar = f"{enemy.hp}/{enemy.max_hp}"
+        else:
+            enemy["hp"] -= damage
+            hp_bar = f"{enemy['hp']}/{enemy['max_hp']}"
+
         self.particles.add_damage_numbers(180, 80, damage, 10)
-        self.hud.add_log(f"You hit {enemy['name']} for {damage}!")
+        # Safely get enemy name
+        if hasattr(enemy, "name"):
+            ename = enemy.name
+        else:
+            ename = enemy["name"]
+        self.hud.add_log(f"You hit {ename} for {damage}!")
         self.combat_log.append(f"You deal {damage} damage")
         self.screen_shake = 4
 
-        if enemy["hp"] <= 0:
-            enemy["hp"] = 0
-            xp_gain = enemy.get("xp", 10)
-            gold_gain = random.randint(1, 3) * self.current_floor
-            self.player.add_xp(xp_gain)
-            self.player.add_gold(gold_gain)
-            self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
-            self.particles.add_explosion(180, 80, 10, 15, 3)
-            self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
-            
-            if self.state == GameState.BOSS_COMBAT:
-                self.check_boss_defeat()
-            else:
-                current_room = self.grid[self.player.y][self.player.x]
-                current_room.monster["hp"] = 0
-                self.state = GameState.EXPLORE
-            
-            if self.player.level > 1 and self.player.xp == 0:
-                self.state = GameState.LEVEL_UP
+        if hasattr(enemy, "hp"):
+            if enemy.hp <= 0:
+                enemy.hp = 0
+                xp_gain = enemy.get("xp", 10) if not hasattr(enemy, "get") else 10
+                gold_gain = random.randint(1, 3) * self.current_floor
+                self.player.add_xp(xp_gain)
+                self.player.add_gold(gold_gain)
+                self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
+                self.particles.add_explosion(180, 80, 10, 15, 3)
+                self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
+                
+                if self.state == GameState.BOSS_COMBAT:
+                    self.check_boss_defeat()
+                else:
+                    current_room = self.grid[self.player.y][self.player.x]
+                    current_room.monster["hp"] = 0
+                    self.state = GameState.EXPLORE
+                
+                if self.player.level > 1 and self.player.xp == 0:
+                    self.state = GameState.LEVEL_UP
+        else:
+            if enemy["hp"] <= 0:
+                enemy["hp"] = 0
+                xp_gain = enemy.get("xp", 10)
+                gold_gain = random.randint(1, 3) * self.current_floor
+                self.player.add_xp(xp_gain)
+                self.player.add_gold(gold_gain)
+                self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
+                self.particles.add_explosion(180, 80, 10, 15, 3)
+                self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
+                
+                if self.state == GameState.BOSS_COMBAT:
+                    self.check_boss_defeat()
+                else:
+                    current_room = self.grid[self.player.y][self.player.x]
+                    current_room.monster["hp"] = 0
+                    self.state = GameState.EXPLORE
+                
+                if self.player.level > 1 and self.player.xp == 0:
+                    self.state = GameState.LEVEL_UP
             return
 
         self.enemy_turn(enemy)
