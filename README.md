@@ -36,6 +36,7 @@ python main.py                   # 256x192 window, requires a display
 | `2` | Ranged (R-ACK + 1d6 − 3) |
 | `3` | Magic (MGK + 2, costs 1 MP) |
 | `R` | Flee regular combat (50%, boss cannot be fled) |
+| `4`–`7` | Skills: Power Strike / Heal / Fireball / Smoke Bomb (unlock at Lv 2/3/4/5, cost MP + cooldown) |
 | `I` | Inventory (Enter: use/equip, `I`/`ESC`: back) |
 | `M` | Full map (`M`/`ESC`: back) |
 | `S` | Save/Load screen (Enter: save, `L`: load, 3 slots) |

@@ -298,6 +298,7 @@ class App:
                 leveled = self.player.add_xp(tr["val"])
                 self.hud.add_log(f"Found {tr['name']}! +{tr['val']} XP")
                 if leveled:
+                    self.grant_pending_skills()
                     self.level_up_return = GameState.EXPLORE
                     self.state = GameState.LEVEL_UP
             
@@ -333,6 +334,14 @@ class App:
             self.player_attack(enemy, "ranged")
         elif pyxel.btnp(pyxel.KEY_3):
             self.player_attack(enemy, "magic")
+        elif pyxel.btnp(pyxel.KEY_4):
+            self.use_skill(enemy, "power_strike")
+        elif pyxel.btnp(pyxel.KEY_5):
+            self.use_skill(enemy, "heal")
+        elif pyxel.btnp(pyxel.KEY_6):
+            self.use_skill(enemy, "fireball")
+        elif pyxel.btnp(pyxel.KEY_7):
+            self.use_skill(enemy, "smoke_bomb")
         elif pyxel.btnp(pyxel.KEY_I):
             self.previous_state = self.state
             self.state = GameState.INVENTORY
@@ -355,6 +364,7 @@ class App:
             self.sound.play(4)
             self.enemy_turn(enemy)
             return
+        self.player.tick_cooldowns()
         if attack_type == "melee":
             base_dmg = self.player.m_ack
             roll = random.randint(1, 6)
@@ -375,6 +385,16 @@ class App:
             self.sound.play(2)
             self.particles.add_magic_effect(180, 100)
 
+        if self._deal_damage(enemy, damage):
+            return
+        self.enemy_turn(enemy)
+
+    def _deal_damage(self, enemy, damage):
+        """Apply damage to a dict-monster or the Boss object.
+
+        Handles kill rewards and state transitions.
+        Returns True if the enemy died (caller must not run enemy_turn).
+        """
         is_boss = hasattr(enemy, "hp")
         if is_boss:
             enemy.hp -= damage
@@ -382,65 +402,103 @@ class App:
             enemy["hp"] -= damage
 
         self.particles.add_damage_numbers(180, 80, damage, 10)
-        # Safely get enemy name
-        if hasattr(enemy, "name"):
-            ename = enemy.name
-        else:
-            ename = enemy["name"]
+        ename = enemy.name if is_boss else enemy["name"]
         self.hud.add_log(f"You hit {ename} for {damage}!")
         self.combat_log.append(f"You deal {damage} damage")
         self.screen_shake = 4
 
+        hp_left = enemy.hp if is_boss else enemy["hp"]
+        if hp_left > 0:
+            return False
+
         if is_boss:
-            if enemy.hp <= 0:
-                enemy.hp = 0
-                # Get XP gain safely
-                if hasattr(enemy, "xp"):
-                    xp_gain = enemy.xp
-                elif hasattr(enemy, "get"):
-                    xp_gain = enemy.get("xp", 10)
-                else:
-                    xp_gain = 10
-                gold_gain = random.randint(1, 3) * self.current_floor
-                leveled = self.player.add_xp(xp_gain)
-                self.player.add_gold(gold_gain)
-                self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
-                self.particles.add_explosion(180, 80, 10, 15, 3)
-                self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
-
-                if self.state == GameState.BOSS_COMBAT:
-                    self.check_boss_defeat()
-                else:
-                    current_room = self.grid[self.player.y][self.player.x]
-                    current_room.monster["hp"] = 0
-                    self.state = GameState.EXPLORE
-
-                if leveled and self.state not in (GameState.GAME_OVER, GameState.VICTORY):
-                    self.level_up_return = self.state
-                    self.state = GameState.LEVEL_UP
-                return
-        elif enemy["hp"] <= 0:
+            enemy.hp = 0
+            # Get XP gain safely
+            if hasattr(enemy, "xp"):
+                xp_gain = enemy.xp
+            elif hasattr(enemy, "get"):
+                xp_gain = enemy.get("xp", 10)
+            else:
+                xp_gain = 10
+        else:
             enemy["hp"] = 0
             xp_gain = enemy.get("xp", 10)
-            gold_gain = random.randint(1, 3) * self.current_floor
-            leveled = self.player.add_xp(xp_gain)
-            self.player.add_gold(gold_gain)
-            self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
-            self.particles.add_explosion(180, 80, 10, 15, 3)
-            self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
+        gold_gain = random.randint(1, 3) * self.current_floor
+        leveled = self.player.add_xp(xp_gain)
+        self.player.add_gold(gold_gain)
+        self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
+        self.particles.add_explosion(180, 80, 10, 15, 3)
+        self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
 
-            if self.state == GameState.BOSS_COMBAT:
-                self.check_boss_defeat()
-            else:
-                current_room = self.grid[self.player.y][self.player.x]
-                current_room.monster["hp"] = 0
-                self.state = GameState.EXPLORE
+        if self.state == GameState.BOSS_COMBAT:
+            self.check_boss_defeat()
+        else:
+            current_room = self.grid[self.player.y][self.player.x]
+            current_room.monster["hp"] = 0
+            self.state = GameState.EXPLORE
 
-            if leveled and self.state not in (GameState.GAME_OVER, GameState.VICTORY):
-                self.level_up_return = self.state
-                self.state = GameState.LEVEL_UP
+        if leveled:
+            self.grant_pending_skills()
+        if leveled and self.state not in (GameState.GAME_OVER, GameState.VICTORY):
+            self.level_up_return = self.state
+            self.state = GameState.LEVEL_UP
+        return True
+
+    def grant_pending_skills(self):
+        from systems.skills import UNLOCK_LEVELS, SKILLS
+        for lvl in sorted(UNLOCK_LEVELS):
+            skill_id = UNLOCK_LEVELS[lvl]
+            if self.player.level >= lvl and skill_id not in self.player.skills_unlocked:
+                self.player.skills_unlocked.append(skill_id)
+                self.hud.add_log(f"Skill learned: {SKILLS[skill_id]['name']}! (key {SKILLS[skill_id]['key']})")
+                self.sound.play(6)
+
+    def use_skill(self, enemy, skill_id):
+        from systems.skills import SKILLS
+        spec = SKILLS[skill_id]
+        if self.player.consume_stun():
+            self.hud.add_log("Stunned! You miss your action.")
+            self.combat_log.append("Stunned! No action.")
+            self.sound.play(4)
+            self.enemy_turn(enemy)
             return
+        if skill_id == "smoke_bomb" and self.state == GameState.BOSS_COMBAT:
+            self.hud.add_log("Can't flee the boss!")
+            self.sound.play(4)
+            return
+        ok, msg = self.player.can_use_skill(skill_id)
+        if not ok:
+            self.hud.add_log(f"{spec['name']}: {msg}")
+            self.sound.play(4)
+            return
+        self.player.tick_cooldowns()
+        self.player.mp -= spec["mp"]
+        self.player.cooldowns[skill_id] = spec["cooldown"]
 
+        if skill_id == "smoke_bomb":
+            self.hud.add_log("Smoke bomb! You vanish.")
+            self.combat_log.append("Escaped with smoke!")
+            self.state = GameState.EXPLORE
+            self.sound.play(9)
+            return
+        if skill_id == "heal":
+            healed = self.player.heal_hp(4)
+            self.hud.add_log(f"Heal! HP+{healed}")
+            self.combat_log.append(f"Healed {healed} HP")
+            self.particles.add_heal_effect(60, 150)
+            self.sound.play(5)
+            self.enemy_turn(enemy)
+            return
+        if skill_id == "power_strike":
+            damage = max(1, 2 * self.player.m_ack + random.randint(1, 6) - 3)
+            self.sound.play(0)
+        elif skill_id == "fireball":
+            damage = self.player.magic * 2 + 2
+            self.sound.play(2)
+            self.particles.add_magic_effect(180, 100)
+
+        if self._deal_damage(enemy, damage):
+            return
         self.enemy_turn(enemy)
 
     def enemy_turn(self, enemy):
@@ -554,6 +612,12 @@ class App:
                     self.hud.add_log(msg)
                     if success:
                         self.sound.play(5)
+                        self.grant_pending_skills()
+                        if self.player.stat_points > 0:
+                            self.level_up_return = (self.previous_state
+                                if self.previous_state in (GameState.COMBAT, GameState.BOSS_COMBAT)
+                                else GameState.EXPLORE)
+                            self.state = GameState.LEVEL_UP
                 elif item and item["type"] == "equipment":
                     success, msg = self.player.equip_item(item_id)
                     self.hud.add_log(msg)
@@ -599,6 +663,8 @@ class App:
                     "gold": self.player.gold, "xp": self.player.xp, "level": self.player.level,
                     "inventory": self.player.inventory, "equipped": self.player.equipped,
                     "statuses": self.player.statuses,
+                    "skills_unlocked": self.player.skills_unlocked,
+                    "cooldowns": self.player.cooldowns,
                 },
                 "dungeon": {
                     "grid": [[{
@@ -649,6 +715,8 @@ class App:
         self.player.inventory = p.get("inventory", {})
         self.player.equipped = p.get("equipped", {"weapon": None, "armor": None, "accessory": None})
         self.player.statuses = p.get("statuses", {})
+        self.player.skills_unlocked = p.get("skills_unlocked", [])
+        self.player.cooldowns = p.get("cooldowns", {})
         
         self.current_floor = data["dungeon"]["current_floor"]
         self.seed = data["dungeon"]["seed"]
@@ -931,7 +999,7 @@ class App:
             pyxel.text(10 + sx, 10 + sy + i * 12, msg, 6)
         
         # Options
-        self.hud.draw_combat_options(10 + sx, 150 + sy, self.player.mp)
+        self.hud.draw_combat_options(10 + sx, 150 + sy, self.player)
         self.hud.draw_statuses(self.player, 200 + sx, 130 + sy)
         
         if self.state == GameState.BOSS_COMBAT:

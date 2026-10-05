@@ -34,6 +34,8 @@ class SaveLoadSystem:
                 "inventory": player.inventory,
                 "equipped": player.equipped,
                 "statuses": getattr(player, "statuses", {}),
+                "skills_unlocked": getattr(player, "skills_unlocked", []),
+                "cooldowns": getattr(player, "cooldowns", {}),
             },
             "dungeon": {
                 "grid": [[{

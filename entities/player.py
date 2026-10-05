@@ -20,6 +20,8 @@ class Player:
         self.evasion = 0
         self.stat_points = 0
         self.statuses = {}
+        self.skills_unlocked = []
+        self.cooldowns = {}
 
     @property
     def m_ack(self):
@@ -152,6 +154,23 @@ class Player:
 
     def is_alive(self):
         return self.hp > 0
+
+    def tick_cooldowns(self):
+        for skill in list(self.cooldowns):
+            self.cooldowns[skill] -= 1
+            if self.cooldowns[skill] <= 0:
+                del self.cooldowns[skill]
+
+    def can_use_skill(self, skill_id):
+        from systems.skills import SKILLS
+        spec = SKILLS[skill_id]
+        if skill_id not in self.skills_unlocked:
+            return False, "Not unlocked"
+        if self.cooldowns.get(skill_id, 0) > 0:
+            return False, f"Cooldown ({self.cooldowns[skill_id]}t)"
+        if self.mp < spec["mp"]:
+            return False, "Not enough MP!"
+        return True, ""
 
     def add_status(self, effect, turns=3):
         from systems.status import EFFECTS

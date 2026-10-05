@@ -50,11 +50,25 @@ class HUD:
         pyxel.rect(x + 1, y + 11, int((bar_w - 2) * hp_pct), 4, 8 if hp_pct > 0.3 else 2)
         pyxel.text(x, y + 18, f"HP: {enemy.hp if hasattr(enemy, 'hp') else enemy['hp']}/{enemy.max_hp if hasattr(enemy, 'max_hp') else enemy['max_hp']}", 7)
 
-    def draw_combat_options(self, x, y, mp):
+    def draw_combat_options(self, x, y, player):
+        from systems.skills import SKILLS
         pyxel.text(x, y, "COMBAT:", 11)
         pyxel.text(x, y + 10, "[1] Melee  [2] Ranged  [3] Magic", 7)
-        pyxel.text(x, y + 20, f"        (MP: {mp})", 12)
+        pyxel.text(x, y + 20, f"        (MP: {player.mp})", 12)
         pyxel.text(x, y + 30, "[I] Inventory  [R] Flee", 6)
+        row = 0
+        for skill_id, spec in SKILLS.items():
+            if skill_id not in player.skills_unlocked:
+                continue
+            cd = player.cooldowns.get(skill_id, 0)
+            if cd:
+                color, suffix = 5, f"({cd}t)"
+            elif player.mp < spec["mp"]:
+                color, suffix = 8, f"({spec['mp']}MP)"
+            else:
+                color, suffix = 7, ""
+            pyxel.text(x, y + 40 + row * 8, f"[{spec['key']}] {spec['name']} {suffix}", color)
+            row += 1
 
     def draw_statuses(self, player, x, y):
         from systems.status import EFFECTS
