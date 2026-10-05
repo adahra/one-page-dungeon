@@ -93,7 +93,10 @@ Press `D` on the title: fixed seed for the date with a rotating modifier (double
 - Mysterious Egg treasure hatches a companion: Gold Gremlin (+15% gold), Blood Imp (1 dmg/round), Mana Wisp (+1 MP/round)
 
 ### Multiplayer (experimental P2P co-op)
-New Game → Multiplayer: one side Hosts (port 8931), the other Joins by IP. Shared dungeon seed, partner marker `2` on the map, room/boss/victory sync; combat stays local. Link loss drops back to solo silently.
+New Game → Multiplayer: one side Hosts (port 8931, many partners can join mid-run), the others Join by IP. Shared dungeon seed, partner markers on the map, room/boss-HP/victory sync; combat stays local.
+- Chat: `/` opens the box, Enter sends, `ESC` cancels
+- Reconnect: dropped clients retry every 3s automatically
+- Anti-cheat (host-side): teleport/damage/flood checks, 3 strikes = kick
 
 ### Quality of life
 - Auto-save on descend/level-up (`dungeon_auto.json`, not in ironman); Continue loads the newest save

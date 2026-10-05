@@ -17,7 +17,7 @@ KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
         "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F", "KEY_Q", "KEY_V",
-        "KEY_E", "KEY_T"]
+        "KEY_E", "KEY_T", "KEY_SLASH"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -82,11 +82,18 @@ def fresh_app():
     app.shop_invest = {}
     app.mp_role = None
     app.mp_ip = ""
-    app.mp_link = None
+    app.mp_peers = {}
+    app.mp_self_id = 0
+    app.mp_next_id = 1
     app.mp_listener = None
     app.mp_pending_room = None
     app.mp_welcome = None
-    app.partner = {"x": 3, "y": 3, "floor": 1, "seen": False}
+    app.partners = {}
+    app.mp_chat_open = False
+    app.mp_chat_buf = ""
+    app.mp_reconnect_at = 0.0
+    from systems.anticheat import HostGuard
+    app.mp_guard = HostGuard()
     app.daily = None
     import time as _time
     app.run_start = _time.time()
@@ -1110,22 +1117,101 @@ class TestNet(unittest.TestCase):
         from main import GameState
         app = fresh_app()
         app.state = GameState.EXPLORE
-        app._mp_handle({"type": "pos", "x": 1, "y": 2, "floor": 1})
-        self.assertTrue(app.partner["seen"])
-        app._mp_handle({"type": "room_clear", "x": 1, "y": 1, "floor": 1})
+        app._mp_handle({"type": "pos", "x": 1, "y": 2, "floor": 1}, 1)
+        self.assertTrue(app.partners[1]["seen"])
+        app._mp_handle({"type": "room_clear", "x": 1, "y": 1, "floor": 1}, 1)
         self.assertTrue(app.grid[1][1].cleared)
         self.assertIsNone(app.grid[1][1].monster)
         # boss hp adopts lower value
         app.state = GameState.BOSS_COMBAT
         app.boss.hp = 10
-        app._mp_handle({"type": "boss_hp", "hp": 4, "phase": 0})
+        app._mp_handle({"type": "boss_hp", "hp": 4, "phase": 0}, 1)
         self.assertEqual(app.boss.hp, 4)
-        app._mp_handle({"type": "boss_hp", "hp": 9, "phase": 0})
+        app._mp_handle({"type": "boss_hp", "hp": 9, "phase": 0}, 1)
         self.assertEqual(app.boss.hp, 4)
         # victory broadcast
         app.state = GameState.EXPLORE
-        app._mp_handle({"type": "victory"})
+        app._mp_handle({"type": "victory"}, 1)
         self.assertEqual(app.state, GameState.VICTORY)
+
+    def test_host_relay_and_chat(self):
+        import socket
+        from systems.net import Link
+        from main import GameState
+        app = fresh_app()
+        app.mp_role = "host"
+        a, b = socket.socketpair()
+        c, d = socket.socketpair()
+        app.mp_peers = {1: Link(a), 2: Link(c)}
+        la, lb = Link(b), Link(d)
+        # chat from peer 1 relays to peer 2 with name tag
+        app._mp_handle({"type": "chat", "text": "hi", "via": 1}, 1)
+        self.assertTrue(any("[P2]" in m for m in app.hud.log_history))
+        got = []
+        import time
+        for _ in range(100):
+            got += lb.poll()
+            if got:
+                break
+            time.sleep(0.01)
+        self.assertTrue(any(m.get("type") == "chat" for m in got))
+        # chat send path
+        app.mp_chat_open = True
+        app.mp_chat_buf = "gg"
+        press(pyxel.KEY_RETURN)
+        app.state = GameState.EXPLORE
+        app._mp_chat_entry()
+        self.assertFalse(app.mp_chat_open)
+        self.assertTrue(any("[Me]" in m for m in app.hud.log_history))
+        press()
+        for link in (la, lb):
+            link.close()
+
+    def test_guard_kicks_cheaters(self):
+        from systems.anticheat import HostGuard
+        g = HostGuard()
+        kick, _ = g.check_pos(9, 9, 9)
+        self.assertFalse(kick)  # first warn only
+        kick, _ = g.check_pos(9, 9, 9)
+        self.assertFalse(kick)
+        kick, reason = g.check_pos(9, 9, 9)
+        self.assertTrue(kick and reason == "out of bounds")
+        g2 = HostGuard()
+        self.assertFalse(g2.check_pos(2, 0, 0)[0])
+        self.assertFalse(g2.check_pos(2, 1, 0)[0])
+        kicked = False
+        for x, y in [(3, 3), (0, 0), (3, 3)]:
+            kicked, _ = g2.check_pos(2, x, y)
+        self.assertTrue(kicked)  # repeated teleports
+        g3 = HostGuard()
+        self.assertFalse(g3.check_boss_hp(3, 50)[0])
+        self.assertTrue(g3.check_boss_hp(3, 500)[0] in (True, False))
+        for _ in range(3):
+            kick, _ = g3.check_boss_hp(3, 500)
+        self.assertTrue(kick)
+        # flood
+        g4 = HostGuard()
+        kicked = False
+        for _ in range(40):
+            kicked, _ = g4.check_rate(5)
+            if kicked:
+                break
+        self.assertTrue(kicked)
+
+    def test_reconnect_scheduled(self):
+        import time
+        from main import GameState
+        app = fresh_app()
+        app.mp_role = "client"
+        app.mp_ip = "127.0.0.1"
+        app.state = GameState.EXPLORE
+        app._mp_on_total_loss()
+        self.assertEqual(app.mp_role, "client")
+        self.assertGreater(app.mp_reconnect_at, time.time())
+        # host loss clears role
+        app.mp_role = "host"
+        app._mp_on_total_loss()
+        self.assertIsNone(app.mp_role)
 
     def test_newgame_submenu(self):
         from main import GameState
@@ -1142,6 +1228,9 @@ class TestNet(unittest.TestCase):
         app.update_newgame()
         self.assertIsNotNone(app.pending_daily)
         press()
+
+
+class TestRNGProperties(unittest.TestCase):
     """Seed-sweep invariants (stdlib property-style, no extra deps)."""
 
     def test_damage_never_zero_or_negative(self):

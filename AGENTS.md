@@ -15,7 +15,7 @@ No lint or typecheck configured.
 - `main.py` — `App` class: all game logic (`update_*`, `draw_*`, `resolve_room_entry`, `player_attack`/`use_skill`/`_deal_damage`/`enemy_turn`, `descend_floor`, `grant_pending_skills`). `GameState` has 18 string states (TITLE, NEWGAME, MULTIPLAYER, CLASS_SELECT, DIFFICULTY, EXPLORE, COMBAT, BOSS_COMBAT, INVENTORY, MAP, SAVE_LOAD, HIGHSCORES, SETTINGS, LEVEL_UP, SHOP, UPGRADES, GAME_OVER, VICTORY).
 - `data/game_data.py` — all content tables (MONSTERS, FEATURES incl. shops+stairs, TREASURES, ITEMS, SHOPS, BOSS_DATA, DIFFICULTY, XP_TABLE, CLASSES, FINAL_FLOOR=5). Edit content here, not in logic.
 - `entities/` — `player.py` (`Player(char_class)`, statuses, skills/cooldowns), `room.py` (lazy `generate_content(difficulty, floor)`, feature roll 1–12), `boss.py`
-- `systems/` — `sound.py` (IDs 0–14), `save_load.py` (slot save/load + highscores + runs), `particles.py` (400 cap), `status.py` (poison/bleed/burn/stun/curse/bless), `skills.py` (4 skills, keys 4–7, unlock Lv 2–5 or tomes), `meta.py` (Soul Fragments/victories + 5 upgrades, `dungeon_meta.json`), `net.py` (P2P Link: pos/room/boss/victory msgs), `daily.py`, `validate.py` (runs at import)
+- `systems/` — `sound.py` (IDs 0–14), `save_load.py` (slot save/load + highscores + runs), `particles.py` (400 cap), `status.py` (poison/bleed/burn/stun/curse/bless), `skills.py` (4 skills, keys 4–7, unlock Lv 2–5 or tomes), `meta.py` (Soul Fragments/victories + 5 upgrades, `dungeon_meta.json`), `net.py` (P2P Link: pos/room/boss/victory/chat msgs), `daily.py`, `validate.py` (runs at import), `anticheat.py` (HostGuard rate/pos/damage)
 - `config.py` — screen/grid/files/MP port constants; use instead of literals
 - `ui/hud.py` — all rendering; `main.py` delegates draws to it
 - `tests/test_game.py` — unittest suite with `pyxel` stub (no display needed); `fresh_app()` builds `App` without `__init__`
@@ -33,5 +33,5 @@ No lint or typecheck configured.
 - Saves: inline JSON `dungeon_save_0/1/2.json` in `update_save_load`; `SaveLoadSystem.save_game/load_game(app, slot)` mirrors the format (player statuses/skills/cooldowns/char_class included). Highscores + `dungeon_meta.json` are gitignored; tests redirect them to tmp.
 - Shop: `sell_selection` (LEFT/RIGHT) is separate from `shop_selection` (UP/DOWN); `ESC`/`B` exits.
 - Title menu has 6 items (New/Continue/Scores/Settings/Upgrades/Quit) — keep `% 6` and branch order in sync with `HUD.draw_title`. New Game opens a 4-item submenu (Single/Multi/Daily/Back).
-- Multiplayer is best-effort: `_mp_send`/`_mp_poll` silent-fallback to solo; host owns rooms (`room_req`→`room_data`), boss HP converges to min, either victory wins both.
+- Multiplayer is best-effort: `_mp_send`/`_mp_poll` silent-fallback to solo; host owns rooms (`room_req`→`room_data`), boss HP converges to min, either victory wins both. Host accepts N clients (`mp_peers`); chat via `/`; clients auto-reconnect; host guards teleports/damage/floods (`HostGuard`, 3 strikes = kick).
 - Pyxel specifics: `pyxel.btnp` = single press, `pyxel.btn` = held; palette 0–15 (8=red, 10=yellow, 11=light blue); `screen_shake` counter adds ±2px offset in `draw()`.

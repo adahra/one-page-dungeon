@@ -15,6 +15,7 @@ from systems.particles import ParticleSystem
 from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, fortune_mult, award, UPGRADES
 from systems.daily import daily_info, MODIFIERS
 from systems.net import Link, listen as net_listen, accept as net_accept, connect as net_connect
+from systems.anticheat import HostGuard
 from config import MP_PORT
 from entities.player import Player
 from entities.room import Room
@@ -71,11 +72,20 @@ class App:
         self.pending_daily = None
         self.mp_role = None
         self.mp_ip = ""
-        self.mp_link = None
+        self.mp_peers = {}
+        self.mp_self_id = 0
+        self.mp_next_id = 1
         self.mp_listener = None
+        self.mp_peers = {}  # peer_id -> Link (host: clients; client: {0: host})
+        self.mp_self_id = 0
+        self.mp_next_id = 1
         self.mp_pending_room = None
         self.mp_welcome = None
-        self.partner = {"x": 3, "y": 3, "floor": 1, "seen": False}
+        self.partners = {}  # peer_id -> {x, y, floor, seen}
+        self.mp_chat_open = False
+        self.mp_chat_buf = ""
+        self.mp_reconnect_at = 0.0
+        self.mp_guard = HostGuard()
         self.inventory_selection = 0
         self.save_slot_selection = 0
         self.shop_selection = 0
@@ -142,7 +152,7 @@ class App:
         self.screen_shake = 0
         self.run_start = time.time()
         self.run_recorded = False
-        self.partner = {"x": 3, "y": 3, "floor": 1, "seen": False}
+        self.partners = {}
 
     def elapsed_str(self):
         secs = int(time.time() - getattr(self, "run_start", time.time()))
@@ -190,36 +200,139 @@ class App:
         self.sound.play(13)
         self._autosave(f"floor {self.current_floor}")
 
+    def _mp_peers_alive(self):
+        return {pid: link for pid, link in self.mp_peers.items() if link.alive}
+
+    def _mp_online_states(self):
+        return (GameState.EXPLORE, GameState.COMBAT, GameState.BOSS_COMBAT,
+                GameState.INVENTORY, GameState.MAP, GameState.SHOP,
+                GameState.LEVEL_UP)
+
+    def _mp_on_total_loss(self):
+        self._mp_cleanup()
+        if (self.mp_role == "client" and self.mp_ip
+                and self.state in self._mp_online_states()):
+            import time as _t
+            self.mp_reconnect_at = _t.time() + 3.0
+            self.hud.add_log("Link lost! Reconnecting...")
+        else:
+            self.mp_role = None
+
+    def _mp_try_reconnect(self):
+        import time as _t
+        if (self.mp_role == "client" and not self.mp_peers and self.mp_ip
+                and self.mp_reconnect_at
+                and _t.time() >= self.mp_reconnect_at
+                and self.state in self._mp_online_states()):
+            link = net_connect(self.mp_ip, MP_PORT, timeout=1.0)
+            if link is None:
+                self.mp_reconnect_at = _t.time() + 3.0
+                return
+            self.mp_peers[0] = link
+            self.mp_role = "client_wait"
+            self.mp_reconnect_at = 0.0
+            link.send({"type": "hello", "rejoin": True,
+                       "id": self.mp_self_id})
+            self.hud.add_log("Reconnected! Syncing...")
+            self.sound.play(10)
+
     def _mp_send(self, obj):
-        if self.mp_link is not None and self.mp_link.alive:
-            if not self.mp_link.send(obj):
-                self.hud.add_log("Link lost!")
-                self._mp_cleanup()
+        dead = []
+        for pid, link in self.mp_peers.items():
+            if link.alive:
+                if not link.send(obj):
+                    dead.append(pid)
+            else:
+                dead.append(pid)
+        for pid in dead:
+            self.mp_peers.pop(pid, None)
+            self.partners.pop(pid, None)
+        if dead and not self.mp_peers:
+            self._mp_on_total_loss()
+        elif dead:
+            self.hud.add_log(f"Lost {len(dead)} peer(s).")
+
+    def _mp_send_to(self, pid, obj):
+        link = self.mp_peers.get(pid)
+        if link is not None and link.alive:
+            if not link.send(obj):
+                self.mp_peers.pop(pid, None)
+                self.partners.pop(pid, None)
 
     def _mp_poll(self):
-        if self.mp_link is None:
-            return
-        for msg in self.mp_link.poll():
-            self._mp_handle(msg)
-        if not self.mp_link.alive:
-            self.hud.add_log("Link lost! Continuing solo.")
-            self._mp_cleanup()
+        if self.mp_role == "host" and self.mp_listener is not None:
+            link = net_accept(self.mp_listener)
+            if link is not None:
+                pid = self.mp_next_id
+                self.mp_next_id += 1
+                self.mp_peers[pid] = link
+                self._mp_send_to(pid, {"type": "welcome",
+                                       "seed": self.seed,
+                                       "difficulty": self.difficulty,
+                                       "your_id": pid})
+                self.hud.add_log(f"Partner P{pid + 1} joined!")
+                self.sound.play(10)
+        for pid, link in list(self.mp_peers.items()):
+            for msg in link.poll():
+                msg["via"] = pid
+                if self.mp_role == "host" and not self._mp_guard_msg(pid, msg):
+                    continue
+                self._mp_handle(msg, pid)
+            if not link.alive:
+                self.mp_peers.pop(pid, None)
+                self.partners.pop(pid, None)
+                self.mp_guard.forget(pid)
+                self.hud.add_log(f"Partner P{pid + 1} left.")
+        if self.mp_role == "client" and not self.mp_peers:
+            self._mp_on_total_loss()
 
-    def _mp_handle(self, msg):
+    def _mp_guard_msg(self, pid, msg):
+        """Host-side anti-cheat. Returns False if the peer was kicked."""
+        kick, _ = self.mp_guard.check_rate(pid)
+        if not kick:
+            mtype = msg.get("type")
+            if mtype == "pos":
+                kick, _ = self.mp_guard.check_pos(pid, msg.get("x", -1),
+                                                  msg.get("y", -1))
+            elif mtype == "boss_hp":
+                drop = self.boss.hp - msg.get("hp", self.boss.hp)
+                kick, _ = self.mp_guard.check_boss_hp(pid, drop)
+        if kick:
+            link = self.mp_peers.pop(pid, None)
+            if link is not None:
+                link.close()
+            self.partners.pop(pid, None)
+            self.mp_guard.forget(pid)
+            self.hud.add_log(f"Kicked P{pid + 1} (invalid data)!")
+            self.sound.play(4)
+            return False
+        return True
+
+    def _mp_handle(self, msg, pid):
         mtype = msg.get("type")
+        sender = msg.get("via", pid)
+        name = f"P{sender + 1}"
         if mtype == "pos":
-            self.partner.update({"x": msg.get("x", 3), "y": msg.get("y", 3),
-                                 "floor": msg.get("floor", 1), "seen": True})
+            self.partners[sender] = {"x": msg.get("x", 3),
+                                     "y": msg.get("y", 3),
+                                     "floor": msg.get("floor", 1),
+                                     "seen": True}
+            if self.mp_role == "host":
+                self._mp_relay(msg, exclude=sender)
+        elif mtype == "chat":
+            self.hud.add_log(f"[{name}] {str(msg.get('text', ''))[:40]}")
+            self.sound.play(9)
+            if self.mp_role == "host":
+                self._mp_relay(msg, exclude=sender)
         elif mtype == "room_req" and self.mp_role == "host":
             x, y = msg.get("x", 3), msg.get("y", 3)
             room = self.grid[y][x]
             if not room.explored and not room.is_boss_room:
                 room.generate_content(self.difficulty, self.current_floor)
-            self._mp_send({"type": "room_data", "x": x, "y": y,
-                           "monster": room.monster, "feature": room.feature,
-                           "treasure": room.treasure})
-        elif mtype == "room_data" and self.mp_role == "client_wait":
-            pass  # handled below via pending room
+            self._mp_send_to(sender, {"type": "room_data", "x": x, "y": y,
+                                      "monster": room.monster,
+                                      "feature": room.feature,
+                                      "treasure": room.treasure})
         elif mtype == "room_data" and self.mp_role == "client":
             pending = self.mp_pending_room
             if pending and (msg.get("x"), msg.get("y")) == pending:
@@ -242,14 +355,25 @@ class App:
                 room.monster = None
                 room.feature = None
                 room.treasure = None
+            if self.mp_role == "host":
+                self._mp_relay(msg, exclude=sender)
         elif mtype == "boss_hp":
             if self.state == GameState.BOSS_COMBAT and msg.get("hp", 999) < self.boss.hp:
                 self.boss.hp = msg["hp"]
-                self.hud.add_log("Partner hurts the Skull!")
+                self.hud.add_log(f"{name} hurts the Skull!")
+            if self.mp_role == "host":
+                self._mp_relay(msg, exclude=sender)
         elif mtype == "victory":
             if self.state != GameState.VICTORY:
                 self.state = GameState.VICTORY
-                self.hud.add_log("Partner slew the Skull!")
+                self.hud.add_log(f"{name} slew the Skull!")
+            if self.mp_role == "host":
+                self._mp_relay(msg, exclude=sender)
+
+    def _mp_relay(self, msg, exclude=None):
+        for pid, link in self.mp_peers.items():
+            if pid != exclude and link.alive:
+                link.send(dict(msg))
 
     def update(self):
         self.particles.update()
@@ -257,8 +381,11 @@ class App:
         if self.screen_shake > 0:
             self.screen_shake -= 1
 
-        if self.mp_link is not None and self.state not in (GameState.TITLE, GameState.NEWGAME, GameState.MULTIPLAYER, GameState.CLASS_SELECT, GameState.DIFFICULTY):
+        if self.mp_peers and self.state not in (GameState.TITLE, GameState.NEWGAME, GameState.MULTIPLAYER, GameState.CLASS_SELECT, GameState.DIFFICULTY):
             self._mp_poll()
+        elif self.mp_role == "host" and self.mp_listener is not None and self.state not in (GameState.TITLE, GameState.NEWGAME, GameState.MULTIPLAYER):
+            self._mp_poll()
+        self._mp_try_reconnect()
 
         if self.state == GameState.TITLE:
             self.update_title()
@@ -370,35 +497,35 @@ class App:
         if self.mp_role == "host_wait" and self.mp_listener is not None:
             link = net_accept(self.mp_listener)
             if link is not None:
-                try:
-                    self.mp_listener.close()
-                except Exception:
-                    pass
-                self.mp_listener = None
-                self.mp_link = link
+                pid = self.mp_next_id
+                self.mp_next_id += 1
+                self.mp_peers[pid] = link
+                self._mp_send_to(pid, {"type": "welcome",
+                                       "seed": self.seed,
+                                       "difficulty": self.difficulty,
+                                       "your_id": pid})
                 self.mp_role = "host"
-                self.mp_link.send({"type": "welcome",
-                                   "seed": self.seed,
-                                   "difficulty": self.difficulty})
-                self.hud.add_log("Partner joined!")
+                self.hud.add_log(f"Partner P{pid + 1} joined! (more can join)")
                 self.sound.play(10)
                 self.state = GameState.CLASS_SELECT
                 self.class_selection = 0
             return
-        if self.mp_role == "client_wait" and self.mp_link is not None:
-            for msg in self.mp_link.poll():
+        if self.mp_role == "client_wait" and 0 in self.mp_peers:
+            link = self.mp_peers[0]
+            for msg in link.poll():
                 if msg.get("type") == "welcome":
                     self.mp_welcome = msg
                     self.mp_role = "client"
+                    self.mp_self_id = msg.get("your_id", 0)
                     self.difficulty = msg.get("difficulty", "normal")
                     self.state = GameState.CLASS_SELECT
                     self.class_selection = 0
                     self.hud.add_log("Joined! Pick a class.")
                     self.sound.play(10)
                     return
-            if not self.mp_link.alive:
+            if not link.alive:
                 self.hud.add_log("Join failed!")
-                self.mp_link = None
+                self.mp_peers.pop(0, None)
                 self.mp_role = None
             return
         options = ["Host Game", "Join Game", "Back"]
@@ -426,7 +553,7 @@ class App:
                 self.state = GameState.NEWGAME
                 self.menu_selection = 1
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
-            self._mp_cleanup()
+            self._mp_leave()
             self.state = GameState.NEWGAME
             self.menu_selection = 1
             self.sound.play(9)
@@ -446,13 +573,39 @@ class App:
                 self.hud.add_log("Connect failed!")
                 self.sound.play(4)
                 return
-            self.mp_link = link
+            self.mp_peers[0] = link
             self.mp_role = "client_wait"
-            self.mp_link.send({"type": "hello"})
+            link.send({"type": "hello"})
             self.hud.add_log(f"Connecting to {self.mp_ip}...")
             self.sound.play(10)
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.mp_role = None
+            self.sound.play(9)
+
+    def _mp_chat_entry(self):
+        if pyxel.btnp(pyxel.KEY_SPACE) and len(self.mp_chat_buf) < 40:
+            self.mp_chat_buf += " "
+            self.sound.play(9)
+            return
+        for key, char in self._mp_text_keys():
+            if pyxel.btnp(key):
+                if char == "\b":
+                    self.mp_chat_buf = self.mp_chat_buf[:-1]
+                elif len(self.mp_chat_buf) < 40:
+                    self.mp_chat_buf += char
+                self.sound.play(9)
+                return
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            text = self.mp_chat_buf.strip()
+            self.mp_chat_open = False
+            self.mp_chat_buf = ""
+            if text:
+                self.hud.add_log(f"[Me] {text[:40]}")
+                self._mp_send({"type": "chat", "text": text[:40]})
+            self.sound.play(10)
+        elif pyxel.btnp(pyxel.KEY_ESCAPE):
+            self.mp_chat_open = False
+            self.mp_chat_buf = ""
             self.sound.play(9)
 
     def _mp_text_keys(self):
@@ -474,18 +627,25 @@ class App:
         return keys
 
     def _mp_cleanup(self):
-        if self.mp_link is not None:
-            self.mp_link.close()
-            self.mp_link = None
+        for link in self.mp_peers.values():
+            link.close()
+        self.mp_peers = {}
         if self.mp_listener is not None:
             try:
                 self.mp_listener.close()
             except Exception:
                 pass
             self.mp_listener = None
-        self.mp_role = None
         self.mp_pending_room = None
-        self.partner = {"x": 3, "y": 3, "floor": 1, "seen": False}
+        self.mp_chat_open = False
+        self.mp_chat_buf = ""
+        self.mp_reconnect_at = 0.0
+        self.partners = {}
+
+    def _mp_leave(self):
+        self._mp_cleanup()
+        self.mp_role = None
+        self.mp_ip = ""
 
     def update_class_select(self):
         classes = list(CLASSES.keys())
@@ -529,6 +689,14 @@ class App:
             self.sound.play(9)
 
     def update_explore(self):
+        if self.mp_chat_open:
+            self._mp_chat_entry()
+            return
+        if self.mp_peers and pyxel.btnp(pyxel.KEY_SLASH):
+            self.mp_chat_open = True
+            self.mp_chat_buf = ""
+            self.sound.play(9)
+            return
         if pyxel.btnp(pyxel.KEY_I):
             self.previous_state = self.state
             self.state = GameState.INVENTORY
@@ -567,7 +735,7 @@ class App:
         if dx != 0 or dy != 0:
             nx, ny = self.player.x + dx, self.player.y + dy
             if 0 <= nx < 4 and 0 <= ny < 4:
-                if (self.mp_link is not None and self.mp_role == "client"
+                if (self.mp_peers and self.mp_role == "client"
                         and not self.grid[ny][nx].explored
                         and not self.grid[ny][nx].is_boss_room
                         and self.mp_pending_room is None):
@@ -736,6 +904,14 @@ class App:
                        "floor": self.current_floor})
 
     def update_combat(self):
+        if self.mp_chat_open:
+            self._mp_chat_entry()
+            return
+        if self.mp_peers and pyxel.btnp(pyxel.KEY_SLASH):
+            self.mp_chat_open = True
+            self.mp_chat_buf = ""
+            self.sound.play(9)
+            return
         current_room = self.grid[self.player.y][self.player.x]
         enemy = self.boss if self.state == GameState.BOSS_COMBAT else current_room.monster
 
@@ -1660,13 +1836,18 @@ class App:
                 
                 if x == self.player.x and y == self.player.y:
                     pyxel.rectb(cx + 2, cy + 2, cell - 4, cell - 4, 9)
-                if (self.partner.get("seen") and self.partner.get("floor") == self.current_floor
-                        and x == self.partner["x"] and y == self.partner["y"]):
-                    pyxel.text(cx + 12, cy + 20, "2", 11)
+                for pid, buddy in self.partners.items():
+                    if (buddy.get("seen") and buddy.get("floor") == self.current_floor
+                            and x == buddy["x"] and y == buddy["y"]):
+                        pyxel.text(cx + 12, cy + 20, str(pid + 1), 11)
 
         # HUD
         self.hud.draw_stats(self.player, 140 + sx, 20 + sy, self.current_floor)
         pyxel.text(10 + sx, 8 + sy, f"TIME {self.elapsed_str()}", 6)
+        if self.mp_chat_open:
+            pyxel.rect(8 + sx, 168 + sy, 180, 12, 0)
+            pyxel.rectb(8 + sx, 168 + sy, 180, 12, 11)
+            pyxel.text(12 + sx, 171 + sy, (self.mp_chat_buf or "") + "_", 7)
         if self.daily:
             pyxel.text(140 + sx, 132 + sy, f"DAILY:{self.daily['modifier']}"[:18], 9)
         self.hud.draw_explore_hud(10 + sx, 150 + sy)
@@ -1721,6 +1902,10 @@ class App:
         
         # Options
         self.hud.draw_combat_options(10 + sx, 150 + sy, self.player)
+        if self.mp_chat_open:
+            pyxel.rect(8 + sx, 168 + sy, 180, 12, 0)
+            pyxel.rectb(8 + sx, 168 + sy, 180, 12, 11)
+            pyxel.text(12 + sx, 171 + sy, (self.mp_chat_buf or "") + "_", 7)
         self.hud.draw_statuses(self.player, 200 + sx, 130 + sy)
         
         if self.state == GameState.BOSS_COMBAT:
