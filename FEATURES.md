@@ -7,7 +7,7 @@
 - **Meta-Progression** ✓ (Soul Fragments, 5 upgrades incl. Fortune item-find, title-screen shop, victory counter)
 - **Status Effects** ✓ (poison/bleed/burn/stun/curse/bless via traps, boss attacks AND player skills; enemy DoT ticks; HUD indicators)
 - **Skill System** ✓ (MP + cooldowns, unlock Lv 2-5 or via tomes; Fireball burns)
-- **Unit tests** ✓ (51 headless tests: unit + seed-sweep RNG properties + full-run to victory)
+- **Unit tests** ✓ (64 headless tests: unit + seed-sweep RNG properties + full-run to victory + net/migration)
 
 ## High Priority
 
