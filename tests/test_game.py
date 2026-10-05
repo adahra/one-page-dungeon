@@ -17,7 +17,7 @@ KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
         "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F", "KEY_Q", "KEY_V",
-        "KEY_E"]
+        "KEY_E", "KEY_T"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -741,6 +741,9 @@ class TestStates(unittest.TestCase):
         app.menu_selection = 0
         press(pyxel.KEY_RETURN)
         app.update_title()
+        self.assertEqual(app.state, GameState.NEWGAME)
+        press(pyxel.KEY_RETURN)
+        app.update_newgame()
         self.assertEqual(app.state, GameState.CLASS_SELECT)
         app.state = GameState.TITLE
         app.menu_selection = 2
@@ -1010,6 +1013,43 @@ class TestStates(unittest.TestCase):
         self.assertEqual(app.current_floor, 2)
         self.assertGreater(app.boss.hp, hp)
         self.assertGreater(app.calculate_score(), 0)
+        self.assertRegex(app.elapsed_str(), r"^\d\d:\d\d$")
+
+    def test_log_filter(self):
+        app = fresh_app()
+        app.hud.add_log("You deal 5 damage!")
+        app.hud.add_log("Found Gold Piece! +3 Gold")
+        app.hud.log_filter = 1
+        self.assertTrue(app.hud._log_visible("You deal 5 damage!"))
+        self.assertFalse(app.hud._log_visible("Found Gold Piece! +3 Gold"))
+        app.hud.log_filter = 3
+        self.assertTrue(app.hud._log_visible("Found Gold Piece! +3 Gold"))
+        press(pyxel.KEY_T)
+        app.state = __import__("main").GameState.EXPLORE
+        app.update_explore()
+        self.assertEqual(app.hud.log_filter, 0)
+        press()
+
+    def test_autosave_and_runs(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        os.chdir(d)
+        try:
+            from main import GameState
+            app = fresh_app()
+            app.descend_floor()
+            self.assertTrue(os.path.exists("dungeon_auto.json"))
+            app.state = GameState.GAME_OVER
+            app.run_recorded = False
+            press()
+            app.update_game_over()
+            self.assertTrue(app.run_recorded)
+            self.assertGreaterEqual(len(app.save_load.load_runs()), 1)
+            newest = app._load_newest_slot()
+            self.assertIsNotNone(newest)
+        finally:
+            os.chdir(cwd)
 
 
 class TestRNGProperties(unittest.TestCase):

@@ -2,6 +2,10 @@ import json
 import os
 from datetime import datetime
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import RUNS_FILE
+
 SAVE_FILE = "dungeon_save.json"
 HIGHSCORE_FILE = "dungeon_highscores.json"
 
@@ -119,3 +123,23 @@ class SaveLoadSystem:
     def delete_save(self):
         if os.path.exists(self.save_file):
             os.remove(self.save_file)
+
+    def save_run(self, entry):
+        runs = self.load_runs()
+        runs.append(entry)
+        runs = runs[-20:]
+        try:
+            with open(RUNS_FILE, "w") as f:
+                json.dump(runs, f)
+        except Exception as e:
+            print(f"Run history save failed: {e}")
+
+    def load_runs(self):
+        if not os.path.exists(RUNS_FILE):
+            return []
+        try:
+            with open(RUNS_FILE) as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Run history load failed: {e}")
+            return []

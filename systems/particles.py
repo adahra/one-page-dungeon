@@ -34,6 +34,8 @@ class ParticleSystem:
         self.particles = [p for p in self.particles if p.life > 0]
         for p in self.particles:
             p.update()
+        if len(self.particles) > 400:  # cap: drop oldest first
+            del self.particles[:len(self.particles) - 400]
 
     def draw(self):
         for p in self.particles:

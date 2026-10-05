@@ -2,8 +2,13 @@ import pyxel
 import random
 import math
 import json
+import os
+import time
+from config import AUTOSAVE_FILE
 
 from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL, SHOPS, FINAL_FLOOR, BOSS_FLOOR_HP_SCALE, CLASSES
+from systems.validate import validate as validate_data
+validate_data()
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
@@ -16,6 +21,8 @@ from ui.hud import HUD
 
 class GameState:
     TITLE = "TITLE"
+    NEWGAME = "NEWGAME"
+    MULTIPLAYER = "MULTIPLAYER"
     CLASS_SELECT = "CLASS_SELECT"
     DIFFICULTY = "DIFFICULTY"
     EXPLORE = "EXPLORE"
@@ -60,6 +67,9 @@ class App:
         self.hs_filter = 0  # 0=all, 1=ironman, 2=daily
         self.pending_class = "warrior"
         self.pending_daily = None
+        self.mp_role = None
+        self.mp_ip = ""
+        self.mp_link = None
         self.inventory_selection = 0
         self.save_slot_selection = 0
         self.shop_selection = 0
@@ -119,6 +129,12 @@ class App:
             self.hud.add_log(f"DAILY {self.daily['date']}: {MODIFIERS[self.daily['modifier']]}")
         self.combat_log.clear()
         self.screen_shake = 0
+        self.run_start = time.time()
+        self.run_recorded = False
+
+    def elapsed_str(self):
+        secs = int(time.time() - getattr(self, "run_start", time.time()))
+        return f"{secs // 60:02d}:{secs % 60:02d}"
 
     def restock_shops(self):
         self.shop_stock = {}
@@ -157,8 +173,10 @@ class App:
         self.combat_log = []
         self.state = GameState.EXPLORE
         self.hud.add_log(f"Descended to floor {self.current_floor}/{FINAL_FLOOR}!")
+        self.hud.add_log(f"Split: {self.elapsed_str()}")
         self.hud.add_log(f"The Skull grows stronger (HP {self.boss.hp})...")
         self.sound.play(13)
+        self._autosave(f"floor {self.current_floor}")
 
     def update(self):
         self.particles.update()
@@ -168,6 +186,10 @@ class App:
 
         if self.state == GameState.TITLE:
             self.update_title()
+        elif self.state == GameState.NEWGAME:
+            self.update_newgame()
+        elif self.state == GameState.MULTIPLAYER:
+            self.update_multiplayer()
         elif self.state == GameState.CLASS_SELECT:
             self.update_class_select()
         elif self.state == GameState.DIFFICULTY:
@@ -212,10 +234,12 @@ class App:
         elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
             self.sound.play(10)
             if self.menu_selection == 0:
-                self.state = GameState.CLASS_SELECT
-                self.class_selection = 0
+                self.state = GameState.NEWGAME
+                self.menu_selection = 0
             elif self.menu_selection == 1:
                 save = self.save_load.load_game()
+                if save is None:
+                    save = self._load_newest_slot()
                 if save:
                     self.load_game_data(save)
                     self.state = GameState.EXPLORE
@@ -231,6 +255,44 @@ class App:
                 self.menu_selection = 0
             elif self.menu_selection == 5:
                 pyxel.quit()
+
+    def update_newgame(self):
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.menu_selection = (self.menu_selection - 1) % 4
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_DOWN):
+            self.menu_selection = (self.menu_selection + 1) % 4
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            self.sound.play(10)
+            if self.menu_selection == 0:  # Single Player
+                self.pending_daily = None
+                self.state = GameState.CLASS_SELECT
+                self.class_selection = 0
+            elif self.menu_selection == 1:  # Multiplayer
+                self.state = GameState.MULTIPLAYER
+                self.menu_selection = 0
+                self.mp_role = None
+                self.mp_ip = ""
+            elif self.menu_selection == 2:  # Daily Challenge
+                self.pending_daily = daily_info()
+                self.state = GameState.CLASS_SELECT
+                self.class_selection = 0
+                self.hud.add_log(f"Daily {self.pending_daily['date']}: {MODIFIERS[self.pending_daily['modifier']]}")
+            else:
+                self.state = GameState.TITLE
+                self.menu_selection = 0
+        elif pyxel.btnp(pyxel.KEY_ESCAPE):
+            self.state = GameState.TITLE
+            self.menu_selection = 0
+            self.sound.play(9)
+
+    def update_multiplayer(self):
+        # Placeholder until P2P lobby wires up below.
+        if pyxel.btnp(pyxel.KEY_ESCAPE):
+            self.state = GameState.NEWGAME
+            self.menu_selection = 1
+            self.sound.play(9)
 
     def update_class_select(self):
         classes = list(CLASSES.keys())
@@ -281,6 +343,9 @@ class App:
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_M):
             self.state = GameState.MAP
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_T):
+            self.hud.log_filter = (self.hud.log_filter + 1) % 4
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_S):
             if DIFFICULTY.get(self.difficulty, {}).get("no_save"):
@@ -487,6 +552,9 @@ class App:
             self.previous_state = self.state
             self.state = GameState.INVENTORY
             self.inventory_selection = 0
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_T):
+            self.hud.log_filter = (self.hud.log_filter + 1) % 4
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_R) and self.state == GameState.COMBAT:
             if random.random() < 0.5:
@@ -837,6 +905,9 @@ class App:
     def update_inventory(self):
         items = list(self.player.inventory.items())
         max_idx = max(0, len(items) - 1)
+        hover = self._hover_row(10, 10 + 15, 10, len(items))
+        if hover is not None and hover != self.inventory_selection:
+            self.inventory_selection = hover
         
         if pyxel.btnp(pyxel.KEY_UP):
             self.inventory_selection = max(0, self.inventory_selection - 1)
@@ -892,25 +963,8 @@ class App:
             self.state = GameState.EXPLORE
             self.sound.play(9)
 
-    def update_save_load(self):
-        saves = []
-        for i in range(3):
-            try:
-                with open(f"dungeon_save_{i}.json", "r") as f:
-                    import json
-                    saves.append(json.load(f))
-            except:
-                saves.append(None)
-
-        if pyxel.btnp(pyxel.KEY_UP):
-            self.save_slot_selection = (self.save_slot_selection - 1) % 3
-            self.sound.play(9)
-        elif pyxel.btnp(pyxel.KEY_DOWN):
-            self.save_slot_selection = (self.save_slot_selection + 1) % 3
-            self.sound.play(9)
-        elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
-            self.sound.play(10)
-            save_data = {
+    def _build_save_data(self):
+        return {
                 "player": {
                     "x": self.player.x, "y": self.player.y,
                     "char_class": self.player.char_class,
@@ -945,6 +999,53 @@ class App:
                 "state": self.state,
                 "log_history": self.hud.log_history,
             }
+
+    def _autosave(self, why=""):
+        if DIFFICULTY.get(self.difficulty, {}).get("no_save"):
+            return
+        try:
+            with open(AUTOSAVE_FILE, "w") as f:
+                json.dump(self._build_save_data(), f)
+            if why:
+                self.hud.add_log(f"Auto-saved ({why})")
+        except Exception as e:
+            self.hud.add_log(f"Auto-save failed: {e}")
+
+    def _record_run(self):
+        if getattr(self, "run_recorded", False):
+            return
+        self.run_recorded = True
+        victory = self.state == GameState.VICTORY
+        from datetime import datetime
+        self.save_load.save_run({
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "class": self.player.char_class,
+            "difficulty": self.score_label(),
+            "floor": self.current_floor,
+            "score": self.calculate_score(),
+            "time": self.elapsed_str(),
+            "victory": victory,
+        })
+
+    def update_save_load(self):
+        saves = []
+        for i in range(3):
+            try:
+                with open(f"dungeon_save_{i}.json", "r") as f:
+                    import json
+                    saves.append(json.load(f))
+            except:
+                saves.append(None)
+
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.save_slot_selection = (self.save_slot_selection - 1) % 3
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_DOWN):
+            self.save_slot_selection = (self.save_slot_selection + 1) % 3
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            self.sound.play(10)
+            save_data = self._build_save_data()
             try:
                 import json
                 with open(f"dungeon_save_{self.save_slot_selection}.json", "w") as f:
@@ -968,6 +1069,24 @@ class App:
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.state = GameState.EXPLORE
             self.sound.play(9)
+
+    def _load_newest_slot(self):
+        import glob
+        best, best_mtime = None, -1.0
+        for path in (glob.glob("dungeon_save_*.json") + [AUTOSAVE_FILE]):
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            if mtime <= best_mtime:
+                continue
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+            except Exception:
+                continue
+            best, best_mtime = data, mtime
+        return best
 
     def load_game_data(self, data):
         p = data["player"]
@@ -1023,6 +1142,9 @@ class App:
     def update_highscores(self):
         if pyxel.btnp(pyxel.KEY_F):
             self.hs_filter = (self.hs_filter + 1) % 3
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_R):
+            self.hs_show_runs = not getattr(self, "hs_show_runs", False)
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.state = GameState.TITLE
@@ -1082,11 +1204,27 @@ class App:
             self.level_up_return = GameState.EXPLORE
             self.hud.add_log("Level up complete!")
             self.particles.add_level_up_effect(30, 30)
+            self._autosave("level up")
+
+    def _hover_row(self, x, y0, row_h, count):
+        try:
+            mx, my = pyxel.mouse_x, pyxel.mouse_y
+        except Exception:
+            return None
+        if mx < x or count <= 0:
+            return None
+        idx = (my - y0) // row_h
+        if 0 <= idx < min(count, 12):
+            return int(idx)
+        return None
 
     def update_shop(self):
         shop_data = SHOPS[self.shop_type]
         items = shop_data["items"]
         max_idx = len(items) - 1
+        hover = self._hover_row(10, 10 + 24, 10, len(items))
+        if hover is not None and hover != self.shop_selection:
+            self.shop_selection = hover
         
         if pyxel.btnp(pyxel.KEY_UP):
             self.shop_selection = max(0, self.shop_selection - 1)
@@ -1192,6 +1330,7 @@ class App:
             self.sound.play(9)
 
     def update_game_over(self):
+        self._record_run()
         if pyxel.btnp(pyxel.KEY_R):
             score = self.calculate_score()
             victory = self.state == GameState.VICTORY
@@ -1210,6 +1349,10 @@ class App:
         
         if self.state == GameState.TITLE:
             self.draw_title(shake_x, shake_y)
+        elif self.state == GameState.NEWGAME:
+            self.draw_newgame(shake_x, shake_y)
+        elif self.state == GameState.MULTIPLAYER:
+            self.draw_multiplayer(shake_x, shake_y)
         elif self.state == GameState.CLASS_SELECT:
             self.draw_class_select(shake_x, shake_y)
         elif self.state == GameState.DIFFICULTY:
@@ -1241,6 +1384,18 @@ class App:
 
     def draw_title(self, sx, sy):
         self.hud.draw_title(10 + sx, 30 + sy, self.menu_selection)
+
+    def draw_newgame(self, sx, sy):
+        pyxel.rect(0, 0, 256, 192, 0)
+        pyxel.rectb(5, 5, 246, 182, 13)
+        self.hud.draw_menu(["Single Player", "Multiplayer", "Daily Challenge", "Back"],
+                           self.menu_selection, 50 + sx, 50 + sy, "NEW GAME")
+
+    def draw_multiplayer(self, sx, sy):
+        pyxel.rect(0, 0, 256, 192, 0)
+        pyxel.rectb(5, 5, 246, 182, 13)
+        pyxel.text(50 + sx, 60 + sy, "MULTIPLAYER (link pending)", 8)
+        pyxel.text(20 + sx, 170 + sy, "[Esc] Back", 6)
 
     def draw_class_select(self, sx, sy):
         self.hud.draw_class_select(self.class_selection, 30 + sx, 30 + sy,
@@ -1287,6 +1442,7 @@ class App:
 
         # HUD
         self.hud.draw_stats(self.player, 140 + sx, 20 + sy, self.current_floor)
+        pyxel.text(10 + sx, 8 + sy, f"TIME {self.elapsed_str()}", 6)
         if self.daily:
             pyxel.text(140 + sx, 132 + sy, f"DAILY:{self.daily['modifier']}"[:18], 9)
         self.hud.draw_explore_hud(10 + sx, 150 + sy)
@@ -1379,8 +1535,11 @@ class App:
             scores = [s for s in scores if s.get("difficulty") == "ironman"]
         elif self.hs_filter == 2:
             scores = [s for s in scores if str(s.get("difficulty", "")).startswith("daily:")]
-        self.hud.draw_highscores(scores, 20 + sx, 20 + sy, self.hs_filter)
-        pyxel.text(20 + sx, 170 + sy, "[F] Filter  [Esc] Back", 6)
+        if getattr(self, "hs_show_runs", False):
+            self.hud.draw_runs(self.save_load.load_runs(), 20 + sx, 20 + sy)
+        else:
+            self.hud.draw_highscores(scores, 20 + sx, 20 + sy, self.hs_filter)
+        pyxel.text(20 + sx, 170 + sy, "[F] Filter [R] Runs [Esc] Back", 6)
 
     def draw_settings(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
@@ -1409,6 +1568,7 @@ class App:
         pyxel.rectb(5, 5, 246, 182, 13)
         victory = self.state == GameState.VICTORY
         self.hud.draw_game_over(victory, self.calculate_score(), 80 + sx, 50 + sy)
+        pyxel.text(80 + sx, 50 + sy + 52, f"Time: {self.elapsed_str()}", 6)
 
 
 if __name__ == "__main__":

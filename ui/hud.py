@@ -4,11 +4,27 @@ class HUD:
     def __init__(self):
         self.log_history = []
         self.max_log_lines = 8
+        self.log_filter = 0  # 0=all, 1=damage, 2=heal, 3=loot
+
+    LOG_FILTERS = ["ALL", "DMG", "HEAL", "LOOT"]
 
     def add_log(self, message):
         self.log_history.append(message)
         if len(self.log_history) > self.max_log_lines:
             self.log_history.pop(0)
+
+    def _log_visible(self, msg):
+        f = self.log_filter
+        if f == 0:
+            return True
+        if f == 1:
+            return ("HP -" in msg or "damage" in msg or "DoT" in msg
+                    or "damage" in msg.lower())
+        if f == 2:
+            return ("HP+" in msg or "MP+" in msg or "Heal" in msg
+                    or "heal" in msg.lower())
+        return ("Gold" in msg or "Found" in msg or "Bought" in msg
+                or "Sold" in msg)
 
     def draw_stats(self, player, x, y, floor=1):
         from data.game_data import FINAL_FLOOR, CLASSES, COMPANIONS
@@ -92,8 +108,8 @@ class HUD:
         pyxel.text(x, y + 20, "[S] Save  [L] Load  [ESC] Menu", 6)
 
     def draw_log(self, x, y):
-        pyxel.text(x, y, "LOG:", 6)
-        visible = self.log_history[-6:]
+        pyxel.text(x, y, f"LOG:[{self.LOG_FILTERS[self.log_filter]}]", 6)
+        visible = [m for m in self.log_history[-6:] if self._log_visible(m)]
         for i, msg in enumerate(visible):
             color = 5 if i == len(visible) - 1 else 6
             pyxel.text(x, y + 12 + i * 8, msg[:48], color)
@@ -166,6 +182,14 @@ class HUD:
                 pyxel.text(x, y + 15 + i * 12, f"{prefix}Slot {i+1}: Lvl{lvl} F{floor} {time_str}", color)
             else:
                 pyxel.text(x, y + 15 + i * 12, f"  Slot {i+1}: [Empty]", 5)
+
+    def draw_runs(self, runs, x, y):
+        pyxel.text(x, y, "RUN HISTORY", 10)
+        pyxel.text(x, y + 12, "Date             Cls  Diff    Flr Score T   W/L", 6)
+        for i, r in enumerate(runs[-8:]):
+            win = "W" if r.get("victory") else "L"
+            pyxel.text(x, y + 24 + i * 10,
+                       f"{r.get('date', ''):<16} {r.get('class', '?')[:4]:<4} {str(r.get('difficulty', ''))[:7]:<7} {r.get('floor', 0):>2} {r.get('score', 0):>5} {r.get('time', '')} {win}", 7)
 
     def draw_highscores(self, scores, x, y, hs_filter=0):
         tag = {1: " (IRONMAN)", 2: " (DAILY)"}.get(hs_filter, "")
