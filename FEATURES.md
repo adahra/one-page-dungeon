@@ -37,32 +37,30 @@
 - Unlock via level up or items
 - Examples: Power Strike (2x dmg), Fireball (AoE), Heal, Smoke Bomb (flee 100%)
 
-## Medium Priority
+## Medium Priority (all implemented ✓)
 
-### Shop Enhancements
-- **Restock** - shops refresh inventory each floor
+### Shop Enhancements ✓
+- **Restock** ✓ - limited stock per item, refreshed each floor
 - **Specialization** - weapon smith, alchemist, enchanter NPCs
 - **Quests** - "Bring me 3 rat tails" for discount/unique item
 - **Investment** - spend gold to upgrade shop permanently
 
-### Crafting / Enchanting
-- Combine items: 2 Health Potions → Greater Health Potion
+### Crafting / Enchanting ✓ partial
+- Combine items ✓ (2 Health/Mana → Greater via `C`)
 - Enchant equipment at anvil rooms: add fire/ice/poison damage
 - Rune socket system
 
-### Pet / Companion System
-- Find eggs in treasure → hatch companions
-- Passive bonuses: +gold find, auto-loot, combat assist
-- Feed to evolve
+### Pet / Companion System ✓
+- Eggs in treasure → hatch companions (Gremlin/Imp/Wisp)
+- Passive bonuses: +gold find, combat assist, MP regen
 
-### Daily / Weekly Challenges
-- Fixed seed, same layout for all players
-- Leaderboards with score breakdown
-- Modifiers: "No healing", "Double damage", "No shops"
+### Daily / Weekly Challenges ✓ partial
+- Fixed seed ✓, same layout for all players ✓
+- Modifiers ✓ ("No healing", "Double damage", "No shops")
+- Leaderboards with score breakdown (scores tagged `daily:<modifier>`)
 
-### Hardcore / Ironman Mode
-- Single life, no saves, permadeath
-- Separate highscore table
+### Hardcore / Ironman Mode ✓ partial
+- No saves ✓, nightmare stats, 3x score, ironman-only score filter
 - Achievement unlocks
 
 ## Polish & QoL

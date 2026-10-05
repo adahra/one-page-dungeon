@@ -16,7 +16,7 @@ pyxel = types.ModuleType("pyxel")
 KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
-        "KEY_6", "KEY_7", "KEY_C", "KEY_D"]
+        "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -75,6 +75,7 @@ def fresh_app():
     app.daily = None
     app.inventory_selection = 0
     app.save_slot_selection = 0
+    app.hs_ironman_only = False
     app.shop_selection = 0
     app.shop_type = "merchant"
     app.sell_selection = 0
@@ -860,10 +861,23 @@ class TestStates(unittest.TestCase):
         app.update_settings()
         self.assertEqual(app.state, GameState.EXPLORE)
         app.state = GameState.HIGHSCORES
+        press(pyxel.KEY_F)
+        app.update_highscores()
+        self.assertTrue(app.hs_ironman_only)
         press(pyxel.KEY_ESCAPE)
         app.update_highscores()
         self.assertEqual(app.state, GameState.TITLE)
         press()
+        # ironman: no saves, 3x score
+        app.difficulty = "ironman"
+        app.state = GameState.EXPLORE
+        press(pyxel.KEY_S)
+        app.update_explore()
+        self.assertEqual(app.state, GameState.EXPLORE)
+        app.difficulty = "normal"
+        iron = app.calculate_score()
+        app.difficulty = "ironman"
+        self.assertEqual(app.calculate_score(), iron * 3)
         # draws run without crash
         for st in [GameState.TITLE, GameState.CLASS_SELECT,
                    GameState.DIFFICULTY, GameState.EXPLORE,

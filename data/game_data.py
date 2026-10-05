@@ -99,6 +99,7 @@ DIFFICULTY = {
     "normal": {"monster_hp_mult": 1.0, "monster_atk_mult": 1.0, "trap_dmg_mult": 1.0, "heal_mult": 1.0, "gold_mult": 1.0, "xp_mult": 1.0},
     "hard": {"monster_hp_mult": 1.5, "monster_atk_mult": 1.5, "trap_dmg_mult": 1.5, "heal_mult": 0.75, "gold_mult": 0.8, "xp_mult": 1.5},
     "nightmare": {"monster_hp_mult": 2.0, "monster_atk_mult": 2.0, "trap_dmg_mult": 2.0, "heal_mult": 0.5, "gold_mult": 0.5, "xp_mult": 2.0},
+    "ironman": {"monster_hp_mult": 2.0, "monster_atk_mult": 2.0, "trap_dmg_mult": 2.0, "heal_mult": 0.5, "gold_mult": 0.5, "xp_mult": 2.0, "no_save": True},
 }
 
 XP_TABLE = [0, 20, 50, 100, 180, 300, 480, 720, 1040, 1460, 2000]

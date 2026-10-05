@@ -39,7 +39,8 @@ python3 main.py                   # 256x192 window, requires a display
 | `R` | Flee regular combat (50%; boss & smoke-bomb-proof) |
 | `I` | Inventory (Enter: use/equip, `I`/`ESC`: back) |
 | `M` | Full map (`M`/`ESC`: back) |
-| `S` | Save/Load screen (Enter: save, `L`: load, 3 slots) |
+| `S` | Save/Load screen (Enter: save, `L`: load, 3 slots; disabled in ironman) |
+| `D` (title) | Daily challenge: fixed seed + rotating modifier |
 | `1`–`5` | Level-up: allocate stat point (M-ACK / R-ACK / DEF / MGK / Evasion) |
 | Shop: Enter / ←`→`+`S` / `B`,`ESC` | Buy selected / pick item + `S` to sell / leave |
 | Upgrades: `↑↓` + Enter | Buy soul upgrade / back with `ESC` |
@@ -78,6 +79,14 @@ Floor bosses drop Soul Fragments (+1 retreat, +3 victory). Spend them on the tit
 | Normal | 100% | 100% | 100% | 100% |
 | Hard | 150% | 150% | 75% | 80% / 150% |
 | Nightmare | 200% | 200% | 50% | 50% / 200% |
+| Ironman | 200% | 200% | 50% | 50% / 200%, score ×3, no saves |
+
+### Daily challenge
+Press `D` on the title: fixed seed for the date with a rotating modifier (double damage, no healing, or no shops). Scores are tagged `daily:<modifier>`.
+
+### Crafting & companions
+- Combine 2 Health/Mana Potions into Greater ones (`C` in inventory)
+- Mysterious Egg treasure hatches a companion: Gold Gremlin (+15% gold), Blood Imp (1 dmg/round), Mana Wisp (+1 MP/round)
 
 ### Progression
 - 10 levels; XP from monsters, treasures, scrolls (incl. usable XP Scrolls)

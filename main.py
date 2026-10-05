@@ -57,6 +57,7 @@ class App:
         
         self.menu_selection = 0
         self.class_selection = 0
+        self.hs_ironman_only = False
         self.pending_class = "warrior"
         self.pending_daily = None
         self.inventory_selection = 0
@@ -267,9 +268,13 @@ class App:
             self.state = GameState.MAP
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_S):
-            self.state = GameState.SAVE_LOAD
-            self.save_slot_selection = 0
-            self.sound.play(9)
+            if DIFFICULTY.get(self.difficulty, {}).get("no_save"):
+                self.hud.add_log("No saves in ironman! Death is final.")
+                self.sound.play(4)
+            else:
+                self.state = GameState.SAVE_LOAD
+                self.save_slot_selection = 0
+                self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.previous_state = self.state
             self.state = GameState.SETTINGS
@@ -793,7 +798,7 @@ class App:
 
     def calculate_score(self):
         base = self.player.gold + self.player.xp + self.player.level * 50
-        diff_bonus = {"easy": 0.5, "normal": 1.0, "hard": 1.5, "nightmare": 2.0}
+        diff_bonus = {"easy": 0.5, "normal": 1.0, "hard": 1.5, "nightmare": 2.0, "ironman": 3.0}
         return int(base * diff_bonus.get(self.difficulty, 1.0))
 
     def update_inventory(self):
@@ -965,7 +970,10 @@ class App:
             self.restock_shops()
 
     def update_highscores(self):
-        if pyxel.btnp(pyxel.KEY_ESCAPE):
+        if pyxel.btnp(pyxel.KEY_F):
+            self.hs_ironman_only = not self.hs_ironman_only
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.state = GameState.TITLE
             self.sound.play(9)
 
@@ -1289,8 +1297,10 @@ class App:
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
         scores = self.save_load.load_highscores()
-        self.hud.draw_highscores(scores, 20 + sx, 20 + sy)
-        pyxel.text(20 + sx, 170 + sy, "[Esc] Back to menu", 6)
+        if self.hs_ironman_only:
+            scores = [s for s in scores if s.get("difficulty") == "ironman"]
+        self.hud.draw_highscores(scores, 20 + sx, 20 + sy, self.hs_ironman_only)
+        pyxel.text(20 + sx, 170 + sy, "[F] Ironman only  [Esc] Back", 6)
 
     def draw_settings(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
