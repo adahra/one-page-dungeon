@@ -172,3 +172,31 @@ class HUD:
             desc = f"HP:{mods['monster_hp_mult']}x ATK:{mods['monster_atk_mult']}x"
             pyxel.text(x, y + 15 + i * 14, f"{'> ' if i == selected else '  '}{d.capitalize()}", color)
             pyxel.text(x + 10, y + 15 + i * 14 + 8, f"    {desc}", 5)
+
+    def draw_shop(self, player, shop_type, selected_idx, shop_data, x, y):
+        from data.game_data import ITEMS
+        pyxel.text(x, y, f"=== {shop_data['name'].upper()} ===", 10)
+        pyxel.text(x, y + 12, f"Gold: {player.gold}", 10)
+        
+        items = shop_data["items"]
+        for i, item_id in enumerate(items):
+            if i >= 12:
+                break
+            item = ITEMS[item_id]
+            price = int(item["price"] * shop_data["price_mult"])
+            color = 10 if i == selected_idx else 7
+            prefix = "> " if i == selected_idx else "  "
+            can_afford = player.gold >= price
+            price_color = 11 if can_afford else 8
+            pyxel.text(x, y + 24 + i * 10, f"{prefix}{item['name']}", color)
+            pyxel.text(x + 120, y + 24 + i * 10, f"{price}G", price_color)
+        
+        if items and selected_idx < len(items):
+            sel_item = ITEMS[items[selected_idx]]
+            price = int(sel_item["price"] * shop_data["price_mult"])
+            pyxel.text(x, y + 150, sel_item.get("desc", ""), 6)
+            pyxel.text(x, y + 160, f"Price: {price}G  [Enter] Buy  [S] Sell  [B/Esc] Exit", 6)
+        
+        # Show sell hint
+        if player.inventory:
+            pyxel.text(x, y + 172, "Press [S] on an item to sell (buyback: {:.0%})".format(shop_data["buyback_mult"]), 5)

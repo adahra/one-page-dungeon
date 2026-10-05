@@ -25,8 +25,8 @@ FEATURES = {
     7: {"name": "Mana Well", "effect": "heal_mp", "val": 3, "desc": "Glowing blue water"},
     8: {"name": "Healing Herb Patch", "effect": "heal_hp", "val": 2, "desc": "Medicinal plants"},
     9: {"name": "Explosive Runes", "effect": "trap", "val": 3, "desc": "Magical landmines"},
-    10: None,
-    11: None,
+    10: {"name": "Wandering Merchant", "effect": "shop", "val": 0, "desc": "Buy and sell items"},
+    11: {"name": "Black Market", "effect": "shop", "val": 1, "desc": "Rare items, higher prices"},
     12: None,
 }
 
@@ -72,6 +72,21 @@ BOSS_DATA = {
         {"name": "The King's Skull (Enraged)", "hp": 10, "attacks": ["charging_bite", "hollow_scream", "third_eye_ray", "skull_swarm", "dark_nova"]},
         {"name": "The King's Skull (True Form)", "hp": 8, "attacks": ["charging_bite", "hollow_scream", "third_eye_ray", "skull_swarm", "dark_nova", "soul_crush"]},
     ]
+}
+
+SHOPS = {
+    "merchant": {
+        "name": "Wandering Merchant",
+        "items": ["health_potion", "mana_potion", "xp_scroll", "iron_sword", "leather_armor"],
+        "price_mult": 1.0,
+        "buyback_mult": 0.5,
+    },
+    "black_market": {
+        "name": "Black Market",
+        "items": ["greater_health", "greater_mana", "strength_potion", "defense_potion", "magic_potion", "steel_sword", "chainmail", "cloak", "magic_wand"],
+        "price_mult": 1.5,
+        "buyback_mult": 0.3,
+    },
 }
 
 DIFFICULTY = {

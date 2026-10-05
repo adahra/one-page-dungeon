@@ -1,8 +1,6 @@
 # One Page Dungeon: Lair of the Skull
 
-A complete retro dungeon crawler built with [Pyxel](https://github.com/kitao/pyxel) - a retro game engine for Python.
-
-## Screenshots
+A complete retro dungeon crawler built with [Pyxel](https://github.com/kitao/pyxel) — a retro game engine for Python.
 
 ```
 +--------------------------------------------------+
@@ -25,117 +23,75 @@ A complete retro dungeon crawler built with [Pyxel](https://github.com/kitao/pyx
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the game
-python main.py
+pip install -r requirements.txt  # pyxel>=2.9.5
+python main.py                   # 256x192 window, requires a display
 ```
 
 ## Controls
 
 | Key | Action |
 |-----|--------|
-| **Arrow Keys** | Move between rooms (Explore) |
-| **1** | Melee Attack (M-ACK + 1d6 - 3) |
-| **2** | Ranged Attack (R-ACK + 1d6 - 3) |
-| **3** | Magic Attack (MGK + 2, costs 1 MP) |
-| **I** | Open Inventory |
-| **M** | View Full Map |
-| **S** | Save/Load Game (3 slots) |
-| **ESC** | Pause Menu / Back |
-| **R** | Restart (after Game Over/Victory) |
-| **L** | Load selected save slot (in Save/Load screen) |
+| Arrows | Move between rooms (Explore) |
+| `1` | Melee (M-ACK + 1d6 − 3) |
+| `2` | Ranged (R-ACK + 1d6 − 3) |
+| `3` | Magic (MGK + 2, costs 1 MP) |
+| `R` | Flee regular combat (50%, boss cannot be fled) |
+| `I` | Inventory (Enter: use/equip, `I`/`ESC`: back) |
+| `M` | Full map (`M`/`ESC`: back) |
+| `S` | Save/Load screen (Enter: save, `L`: load, 3 slots) |
+| `1`–`5` | Level-up: allocate stat point (M-ACK / R-ACK / DEF / MGK / Evasion) |
+| Shop: Enter / `S` / `B`,`ESC` | Buy selected / sell inventory item / leave |
+| `R` / `ESC` | Restart / back to title (Game Over / Victory) |
+| `ESC` | Pause menu / back |
 
 ## Gameplay
 
-### Objective
-Explore a 4×4 dungeon grid, survive traps and monsters, collect treasure, level up, and defeat **The King's Skull** (3-phase boss) in the top-left corner.
+**Objective:** explore the 4×4 grid from `(3,3)`, survive traps and monsters, loot treasure, level up, and defeat **The King's Skull** in the boss room at `(0,0)`.
 
-### Difficulty Modes
-| Difficulty | Monster HP | Monster ATK | Trap DMG | Healing | Gold/XP |
-|------------|-----------|-------------|----------|---------|---------|
-| **Easy**   | 75%       | 75%         | 50%      | 150%    | 120%    |
-| **Normal** | 100%      | 100%        | 100%     | 100%    | 100%    |
-| **Hard**   | 150%      | 150%        | 150%     | 75%     | 80%/150%|
-| **Nightmare**| 200%    | 200%        | 200%     | 50%     | 50%/200%|
+### Difficulty
 
-### Character Progression
-- **10 Levels** - XP from monsters, treasures, scrolls
-- **Stat Points** on level up - allocate to M-ACK, R-ACK, DEF, MGK, or Evasion
-- **Equipment Slots** - Weapon, Armor, Accessory with bonuses
-- **Perm Stat Potions** - Rare treasures that permanently increase base stats
+| Difficulty | Monster HP/ATK | Trap | Healing | Gold / XP |
+|------------|---------------|------|---------|-----------|
+| Easy | 75% | 50% | 150% | 120% |
+| Normal | 100% | 100% | 100% | 100% |
+| Hard | 150% | 150% | 75% | 80% / 150% |
+| Nightmare | 200% | 200% | 50% | 50% / 200% |
 
-### Room Contents (Random per Room)
-- **10 Monster Types** - Skeletons, Golems, Casters, Champions (scale with floor)
-- **9 Features/Traps** - Pits, Fountains, Shrines, Herb Patches, Explosive Runes
-- **11 Treasures** - Gold, Elixirs, Potions, Equipment, XP Scrolls
+### Progression
+- 10 levels; XP from monsters, treasures, scrolls
+- 1 stat point per level-up → M-ACK, R-ACK, DEF, MGK, or Evasion
+- Equipment slots: weapon / armor / accessory
+- Permanent stat boosts from shrines, armories, and potions
 
-### Boss: The King's Skull
-3 phases with escalating attacks:
-1. **Phase 1** - Charging Bite, Hollow Scream, Third Eye Ray
-2. **Phase 2 (Enraged)** + Skull Swarm, Dark Nova
-3. **Phase 3 (True Form)** + Soul Crush
+### Room contents (rolled on first entry)
+- 9 monsters (Jesters, Ratdogs, Golems, Champions, …; scale with difficulty/floor)
+- 11 features (traps, fountains, shrines, herb patches, runes, Merchant / Black Market shops)
+- 11 treasures (gold, elixirs, stat potions, XP scrolls)
+
+### Boss: The King's Skull (3 phases)
+1. Charging Bite, Hollow Scream, Third Eye Ray
+2. Enraged: + Skull Swarm, Dark Nova
+3. True Form: + Soul Crush
 
 ## Project Structure
 
 ```
-pyxel/
-├── main.py                 # Entry point, game loop, state machine
-├── requirements.txt        # pyxel>=2.9.5
-├── README.md               # This file
-├── AGENTS.md               # Agent instructions
-├── data/
-│   └── game_data.py       # All data tables (monsters, items, difficulty, XP)
-├── entities/
-│   ├── player.py          # Player stats, inventory, leveling, equipment
-│   ├── room.py            # Room generation with difficulty/floor scaling
-│   └── boss.py            # Multi-phase boss with unique attack patterns
-├── systems/
-│   ├── sound.py           # 15 sound effects (melee, ranged, magic, heal, etc.)
-│   ├── save_load.py       # JSON save/load (3 slots) + high scores
-│   └── particles.py       # Particle system (explosions, damage numbers, effects)
-└── ui/
-    └── hud.py             # All rendering (stats, combat, menus, maps, logs)
+├── main.py              # Entry point; App state machine (14 states), combat, saves
+├── data/game_data.py    # All content tables (monsters, features, treasures, items, shops, boss, difficulty, XP)
+├── entities/            # player.py, room.py (lazy generate_content), boss.py
+├── systems/             # sound.py (IDs 0-14), save_load.py (highscores), particles.py
+├── ui/hud.py            # All rendering
+├── dungeon_game.py      # Legacy prototype, ignored
+├── FEATURES.md          # Design notes
 ```
 
-## Features
-
-### Core Systems
-- **Modular Architecture** - Clean separation of data, entities, systems, UI
-- **State Machine** - Title → Difficulty → Explore/Combat/Inventory/Map/Save/Menu
-- **Procedural Generation** - Rooms generate on first entry with difficulty scaling
-- **Persistent Dungeon** - Cleared rooms stay cleared
-
-### Visual & Audio
-- **Particle Effects** - Damage numbers, explosions, heal sparkles, magic swirls, blood, level-up fireworks, gold sparkles
-- **Screen Shake** - On damage, traps, boss phase transitions
-- **15 Sound Effects** - Distinct audio for every action
-- **Mini-map** - Shows explored/cleared/boss rooms
-
-### Quality of Life
-- **Combat Log** - Last 6 messages during fights
-- **Full Map View** - Press M to see entire dungeon
-- **Save/Load** - 3 slots with timestamp, level, floor preview
-- **High Scores** - Top 10 with name, score, difficulty, floor, win/loss
-- **Settings** - Sound toggle
-
-## Built-in Editors (Pyxel)
-
-```bash
-# Image & tilemap editor
-pyxel edit
-
-# Sound & music editor
-pyxel edit sound.pyxel
-```
+Saves: `dungeon_save_0/1/2.json`; highscores: `dungeon_highscores.json`.
 
 ## Resources
 
 - [Pyxel User Guide](https://kitao.github.io/pyxel/web/user-guide/)
-- [Pyxel Examples](https://kitao.github.io/pyxel-user-examples/)
 - [Pyxel GitHub](https://github.com/kitao/pyxel)
 
 ## License
 
-MIT License - Free to use, modify, and distribute.
+MIT — free to use, modify, and distribute.

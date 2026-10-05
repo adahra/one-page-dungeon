@@ -3,7 +3,7 @@ import random
 import math
 import json
 
-from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL
+from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL, SHOPS
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
@@ -24,6 +24,7 @@ class GameState:
     HIGHSCORES = "HIGHSCORES"
     SETTINGS = "SETTINGS"
     LEVEL_UP = "LEVEL_UP"
+    SHOP = "SHOP"
     GAME_OVER = "GAME_OVER"
     VICTORY = "VICTORY"
 
@@ -51,6 +52,8 @@ class App:
         self.menu_selection = 0
         self.inventory_selection = 0
         self.save_slot_selection = 0
+        self.shop_selection = 0
+        self.shop_type = None
         self.combat_log = []
         
         self._generate_dungeon()
@@ -107,6 +110,8 @@ class App:
             self.update_settings()
         elif self.state == GameState.LEVEL_UP:
             self.update_level_up()
+        elif self.state == GameState.SHOP:
+            self.update_shop()
         elif self.state in [GameState.GAME_OVER, GameState.VICTORY]:
             self.update_game_over()
 
@@ -278,6 +283,15 @@ class App:
             
             self.particles.add_gold_effect(50 + self.player.x * 30, 50 + self.player.y * 30)
             self.sound.play(11)
+
+        # Shop
+        if room.feature and room.feature["effect"] == "shop":
+            self.shop_type = "black_market" if room.feature["val"] == 1 else "merchant"
+            self.shop_selection = 0
+            self.state = GameState.SHOP
+            self.hud.add_log(f"SHOP: {SHOPS[self.shop_type]['name']}!")
+            self.sound.play(11)
+            return
 
         # Monster
         if room.monster and room.monster["hp"] > 0:
@@ -661,6 +675,58 @@ class App:
             self.hud.add_log("Level up complete!")
             self.particles.add_level_up_effect(30, 30)
 
+    def update_shop(self):
+        shop_data = SHOPS[self.shop_type]
+        items = shop_data["items"]
+        max_idx = len(items) - 1
+        
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.shop_selection = max(0, self.shop_selection - 1)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_DOWN):
+            self.shop_selection = min(max_idx, self.shop_selection + 1)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            if items and self.shop_selection < len(items):
+                item_id = items[self.shop_selection]
+                item = ITEMS[item_id]
+                price = int(item["price"] * shop_data["price_mult"])
+                
+                if self.player.gold >= price:
+                    self.player.gold -= price
+                    self.player.add_item(item_id)
+                    self.hud.add_log(f"Bought {item['name']} for {price} Gold!")
+                    self.sound.play(11)
+                    self.particles.add_gold_effect(120, 100)
+                else:
+                    self.hud.add_log("Not enough gold!")
+                    self.sound.play(4)
+        elif pyxel.btnp(pyxel.KEY_S):
+            # Sell mode - sell selected inventory item
+            self.sell_item()
+        elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_B):
+            self.state = GameState.EXPLORE
+            self.sound.play(9)
+
+    def sell_item(self):
+        shop_data = SHOPS[self.shop_type]
+        items = list(self.player.inventory.items())
+        if not items:
+            self.hud.add_log("Nothing to sell!")
+            self.sound.play(4)
+            return
+        
+        if self.shop_selection < len(items):
+            item_id, qty = items[self.shop_selection]
+            item = ITEMS.get(item_id)
+            if item:
+                price = int(item["price"] * shop_data["buyback_mult"])
+                self.player.gold += price
+                self.player.remove_item(item_id)
+                self.hud.add_log(f"Sold {item['name']} for {price} Gold!")
+                self.sound.play(11)
+                self.particles.add_gold_effect(120, 100)
+
     def update_game_over(self):
         if pyxel.btnp(pyxel.KEY_R):
             score = self.calculate_score()
@@ -698,6 +764,8 @@ class App:
             self.draw_settings(shake_x, shake_y)
         elif self.state == GameState.LEVEL_UP:
             self.draw_level_up(shake_x, shake_y)
+        elif self.state == GameState.SHOP:
+            self.draw_shop(shake_x, shake_y)
         elif self.state in [GameState.GAME_OVER, GameState.VICTORY]:
             self.draw_game_over(shake_x, shake_y)
         
@@ -844,6 +912,11 @@ class App:
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
         self.hud.draw_level_up(self.player, 80 + sx, 30 + sy)
+
+    def draw_shop(self, sx, sy):
+        pyxel.rect(0, 0, 256, 192, 0)
+        pyxel.rectb(5, 5, 246, 182, 13)
+        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy)
 
     def draw_game_over(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
