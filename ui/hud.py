@@ -10,11 +10,12 @@ class HUD:
         if len(self.log_history) > self.max_log_lines:
             self.log_history.pop(0)
 
-    def draw_stats(self, player, x, y):
+    def draw_stats(self, player, x, y, floor=1):
+        from data.game_data import FINAL_FLOOR
         pyxel.text(x, y, "=== CHARACTER ===", 6)
         pyxel.text(x, y + 12, f"HP:  {player.hp}/{player.max_hp}", 8)
         pyxel.text(x, y + 22, f"MP:  {player.mp}/{player.max_mp}", 12)
-        pyxel.text(x, y + 32, f"LVL: {player.level}  XP: {player.xp}/{player.xp + player.get_xp_to_next()}", 10)
+        pyxel.text(x, y + 32, f"LVL: {player.level} FLR:{floor}/{FINAL_FLOOR} XP:{player.xp}", 10)
         pyxel.text(x, y + 42, f"M-ACK: {player.m_ack}", 7)
         pyxel.text(x, y + 52, f"R-ACK: {player.r_ack}", 7)
         pyxel.text(x, y + 62, f"DEF:   {player.defense}", 7)

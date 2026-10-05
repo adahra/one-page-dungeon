@@ -27,7 +27,7 @@ FEATURES = {
     9: {"name": "Explosive Runes", "effect": "trap", "val": 3, "desc": "Magical landmines"},
     10: {"name": "Wandering Merchant", "effect": "shop", "val": 0, "desc": "Buy and sell items"},
     11: {"name": "Black Market", "effect": "shop", "val": 1, "desc": "Rare items, higher prices"},
-    12: None,
+    12: {"name": "Descending Stairs", "effect": "stairs", "val": 1, "desc": "Down to the next floor"},
 }
 
 TREASURES = {
@@ -98,3 +98,5 @@ DIFFICULTY = {
 
 XP_TABLE = [0, 20, 50, 100, 180, 300, 480, 720, 1040, 1460, 2000]
 MAX_LEVEL = 10
+FINAL_FLOOR = 5
+BOSS_FLOOR_HP_SCALE = 0.25

@@ -30,8 +30,8 @@ class Room:
             data["xp"] = int(data["xp"] * diff["xp_mult"])
             self.monster = data
 
-        # Roll Feature / Trap
-        f_roll = random.randint(1, 9)
+        # Roll Feature / Trap / Shop / Stairs (12 = stairs, 10-11 = shops)
+        f_roll = random.randint(1, 12)
         if FEATURES[f_roll]:
             feat = FEATURES[f_roll].copy()
             if feat["effect"] == "trap":

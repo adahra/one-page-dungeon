@@ -47,7 +47,12 @@ python main.py                   # 256x192 window, requires a display
 
 ## Gameplay
 
-**Objective:** explore the 4×4 grid from `(3,3)`, survive traps and monsters, loot treasure, level up, and defeat **The King's Skull** in the boss room at `(0,0)`.
+**Objective:** descend 5 floors from `(3,3)`, survive traps and monsters, loot treasure, level up, and defeat **The King's Skull** in the boss room at `(0,0)` — the final kill on floor 5 wins.
+
+### Floors
+- Find **Descending Stairs** (or beat each floor's boss) to go deeper
+- Monsters scale per floor; treasure gold grows; boss HP +25%/floor
+- Beating a floor 1–4 boss makes the Skull retreat deeper instead of victory
 
 ### Difficulty
 

@@ -3,7 +3,7 @@ import random
 import math
 import json
 
-from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL, SHOPS
+from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL, SHOPS, FINAL_FLOOR, BOSS_FLOOR_HP_SCALE
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
@@ -88,6 +88,21 @@ class App:
         self.hud.add_log("Welcome to the Lair of the Skull!")
         self.combat_log.clear()
         self.screen_shake = 0
+
+    def descend_floor(self):
+        self.current_floor += 1
+        self.player.x, self.player.y = 3, 3
+        self.boss = Boss(self.difficulty)
+        scale = 1 + BOSS_FLOOR_HP_SCALE * (self.current_floor - 1)
+        self.boss.hp = self.boss.max_hp = max(1, int(self.boss.max_hp * scale))
+        self._generate_dungeon()
+        self.grid[3][3].explored = True
+        self.grid[0][0].is_boss_room = True
+        self.combat_log = []
+        self.state = GameState.EXPLORE
+        self.hud.add_log(f"Descended to floor {self.current_floor}/{FINAL_FLOOR}!")
+        self.hud.add_log(f"The Skull grows stronger (HP {self.boss.hp})...")
+        self.sound.play(13)
 
     def update(self):
         self.particles.update()
@@ -264,19 +279,20 @@ class App:
                 self.state = GameState.GAME_OVER
                 return
 
-        # Treasure
+        # Treasure (richer on deeper floors)
         if room.treasure:
             tr = room.treasure
+            floor_bonus = self.current_floor - 1
             if tr["type"] == "gold":
-                amount = tr["val"]
+                amount = tr["val"] + floor_bonus
                 self.player.add_gold(amount)
                 self.hud.add_log(f"Found {tr['name']}! +{amount} Gold")
             elif tr["type"] == "gold_d6":
-                amount = random.randint(1, 6) * tr["val"]
+                amount = random.randint(1, 6) * tr["val"] + floor_bonus
                 self.player.add_gold(amount)
                 self.hud.add_log(f"Found {tr['name']}! +{amount} Gold")
             elif tr["type"] == "gold_2d6":
-                amount = (random.randint(1, 6) + random.randint(1, 6)) * tr["val"]
+                amount = (random.randint(1, 6) + random.randint(1, 6)) * tr["val"] + floor_bonus
                 self.player.add_gold(amount)
                 self.hud.add_log(f"Found {tr['name']}! +{amount} Gold")
             elif tr["type"] == "heal_hp":
@@ -313,6 +329,15 @@ class App:
             self.state = GameState.SHOP
             self.hud.add_log(f"SHOP: {SHOPS[self.shop_type]['name']}!")
             self.sound.play(11)
+            return
+
+        # Stairs (after treasure, slips past any guardian)
+        if room.feature and room.feature["effect"] == "stairs":
+            if room.monster and room.monster["hp"] > 0:
+                self.hud.add_log("You slip past the guardian!")
+            self.hud.add_log("Descending...")
+            self.sound.play(11)
+            self.descend_floor()
             return
 
         # Monster
@@ -574,14 +599,20 @@ class App:
 
     def check_boss_defeat(self):
         if self.boss.phase >= len(BOSS_DATA["phases"]) - 1 and self.boss.hp <= 0:
-            self.state = GameState.VICTORY
-            score = self.calculate_score()
-            self.save_load.save_highscore("Hero", score, self.difficulty, self.current_floor, True)
-            self.hud.add_log("THE KING'S SKULL DEFEATED!")
-            self.sound.play(14)
-            self.particles.add_explosion(180, 60, 10, 30, 6)
-            self.screen_shake = 30
-        elif self.boss.hp <= 0:
+            if self.current_floor >= FINAL_FLOOR:
+                self.state = GameState.VICTORY
+                score = self.calculate_score()
+                self.save_load.save_highscore("Hero", score, self.difficulty, self.current_floor, True)
+                self.hud.add_log("THE KING'S SKULL DEFEATED!")
+                self.sound.play(14)
+                self.particles.add_explosion(180, 60, 10, 30, 6)
+                self.screen_shake = 30
+            else:
+                self.hud.add_log("The Skull retreats deeper!")
+                self.sound.play(13)
+                self.descend_floor()
+            return
+        if self.boss.hp <= 0:
             self.boss.next_phase()
             self.hud.add_log(f"BOSS PHASE {self.boss.phase + 1}: {self.boss.name}!")
             self.particles.add_explosion(180, 60, 8, 20, 4)
@@ -948,7 +979,7 @@ class App:
                     pyxel.rectb(cx + 2, cy + 2, cell - 4, cell - 4, 9)
 
         # HUD
-        self.hud.draw_stats(self.player, 140 + sx, 20 + sy)
+        self.hud.draw_stats(self.player, 140 + sx, 20 + sy, self.current_floor)
         self.hud.draw_explore_hud(10 + sx, 150 + sy)
         self.hud.draw_log(10 + sx, 160 + sy)
         self.hud.draw_minimap(self.grid, self.player.x, self.player.y, 140 + sx, 130 + sy)
@@ -1014,7 +1045,7 @@ class App:
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
         self.hud.draw_minimap(self.grid, self.player.x, self.player.y, 50 + sx, 30 + sy)
-        self.hud.draw_stats(self.player, 10 + sx, 10 + sy)
+        self.hud.draw_stats(self.player, 10 + sx, 10 + sy, self.current_floor)
 
     def draw_save_load(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
