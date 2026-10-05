@@ -65,6 +65,8 @@ class App:
         self.shop_selection = 0
         self.shop_type = None
         self.sell_selection = 0
+        self.shop_discount = 1.0
+        self.shop_invest = {}
         self.shop_stock = {}
         self.level_up_return = GameState.EXPLORE
         self.combat_log = []
@@ -107,6 +109,8 @@ class App:
         self.state = GameState.EXPLORE
         self.previous_state = None
         self.sell_selection = 0
+        self.shop_discount = 1.0
+        self.shop_invest = {}
         self.restock_shops()
         self.level_up_return = GameState.EXPLORE
         self.hud.log_history.clear()
@@ -127,6 +131,15 @@ class App:
 
     def shop_item_stock(self, item_id):
         return self.shop_stock.get(self.shop_type, {}).get(item_id, 0)
+
+    def shop_buyback_mult(self):
+        shop_data = SHOPS[self.shop_type]
+        return shop_data["buyback_mult"] + 0.05 * self.shop_invest.get(self.shop_type, 0)
+
+    def shop_price(self, item_id):
+        shop_data = SHOPS[self.shop_type]
+        item = ITEMS[item_id]
+        return max(1, int(item["price"] * shop_data["price_mult"] * self.shop_discount))
 
     def descend_floor(self):
         self.current_floor += 1
@@ -417,7 +430,10 @@ class App:
                 self.hud.add_log("Abandoned shop. Nothing here.")
                 room.cleared = True
                 return
-            self.shop_type = "black_market" if room.feature["val"] == 1 else "merchant"
+            if room.feature["val"] == 1:
+                self.shop_type = "black_market" if random.random() < 0.5 else "enchanter"
+            else:
+                self.shop_type = "merchant"
             self.shop_selection = 0
             self.sell_selection = 0
             self.state = GameState.SHOP
@@ -554,6 +570,10 @@ class App:
         leveled = self.player.add_xp(xp_gain)
         self.player.add_gold(gold_gain)
         self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
+        ename = enemy.name if is_boss else enemy["name"]
+        if ename == "Skeletal Dungeon Ratdog":
+            self.player.add_item("rat_tail")
+            self.hud.add_log("Looted a Rat Tail! (quest: 3x)")
         self.particles.add_explosion(180, 80, 10, 15, 3)
         self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
 
@@ -894,6 +914,8 @@ class App:
                 },
                 "boss": {"name": self.boss.name, "hp": self.boss.hp, "max_hp": self.boss.max_hp, "phase": self.boss.phase, "attacks": self.boss.attacks, "statuses": self.boss.statuses},
                 "shop_stock": self.shop_stock,
+                "shop_discount": self.shop_discount,
+                "shop_invest": self.shop_invest,
                 "daily": self.daily,
                 "state": self.state,
                 "log_history": self.hud.log_history,
@@ -968,6 +990,8 @@ class App:
         self.shop_stock = data.get("shop_stock", {})
         if not self.shop_stock:
             self.restock_shops()
+        self.shop_discount = data.get("shop_discount", 1.0)
+        self.shop_invest = data.get("shop_invest", {})
 
     def update_highscores(self):
         if pyxel.btnp(pyxel.KEY_F):
@@ -1047,7 +1071,7 @@ class App:
             if items and self.shop_selection < len(items):
                 item_id = items[self.shop_selection]
                 item = ITEMS[item_id]
-                price = int(item["price"] * shop_data["price_mult"])
+                price = self.shop_price(item_id)
 
                 if self.shop_item_stock(item_id) <= 0:
                     self.hud.add_log(f"{item['name']} sold out!")
@@ -1062,6 +1086,34 @@ class App:
                 else:
                     self.hud.add_log("Not enough gold!")
                     self.sound.play(4)
+        elif pyxel.btnp(pyxel.KEY_Q):
+            tails = self.player.inventory.get("rat_tail", 0)
+            if self.shop_discount < 1.0:
+                self.hud.add_log("Quest done: discount active!")
+                self.sound.play(4)
+            elif tails >= 3:
+                for _ in range(3):
+                    self.player.remove_item("rat_tail")
+                self.shop_discount = 0.8
+                self.hud.add_log("Quest complete! 20% off forever!")
+                self.sound.play(6)
+            else:
+                self.hud.add_log(f"Quest: bring 3 Rat Tails ({tails}/3)")
+                self.sound.play(4)
+        elif pyxel.btnp(pyxel.KEY_V):
+            level = self.shop_invest.get(self.shop_type, 0)
+            cost = 100 * (level + 1)
+            if level >= 5:
+                self.hud.add_log("Shop fully upgraded!")
+                self.sound.play(4)
+            elif self.player.gold >= cost:
+                self.player.gold -= cost
+                self.shop_invest[self.shop_type] = level + 1
+                self.hud.add_log(f"Invested! Buyback {self.shop_buyback_mult():.0%}")
+                self.sound.play(6)
+            else:
+                self.hud.add_log(f"Need {cost}G to invest!")
+                self.sound.play(4)
         elif pyxel.btnp(pyxel.KEY_S):
             # Sell mode - sell selected inventory item (LEFT/RIGHT picks it)
             self.sell_item()
@@ -1077,7 +1129,6 @@ class App:
             self.sound.play(9)
 
     def sell_item(self):
-        shop_data = SHOPS[self.shop_type]
         items = list(self.player.inventory.items())
         if not items:
             self.hud.add_log("Nothing to sell!")
@@ -1089,12 +1140,12 @@ class App:
         item_id, qty = items[idx]
         item = ITEMS.get(item_id)
         if item:
-                price = int(item["price"] * shop_data["buyback_mult"])
-                self.player.gold += price
-                self.player.remove_item(item_id)
-                self.hud.add_log(f"Sold {item['name']} for {price} Gold!")
-                self.sound.play(11)
-                self.particles.add_gold_effect(120, 100)
+            price = int(item["price"] * self.shop_buyback_mult())
+            self.player.gold += price
+            self.player.remove_item(item_id)
+            self.hud.add_log(f"Sold {item['name']} for {price} Gold!")
+            self.sound.play(11)
+            self.particles.add_gold_effect(120, 100)
 
     def update_upgrades(self):
         ids = list(UPGRADES.keys())
@@ -1316,7 +1367,7 @@ class App:
     def draw_shop(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
-        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy, self.sell_selection, self.shop_stock.get(self.shop_type, {}))
+        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy, self.sell_selection, self.shop_stock.get(self.shop_type, {}), self.shop_discount, self.shop_invest.get(self.shop_type, 0))
 
     def draw_upgrades(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)

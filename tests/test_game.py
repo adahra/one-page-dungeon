@@ -16,7 +16,7 @@ pyxel = types.ModuleType("pyxel")
 KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
-        "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F"]
+        "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F", "KEY_Q", "KEY_V"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -76,6 +76,8 @@ def fresh_app():
     app.inventory_selection = 0
     app.save_slot_selection = 0
     app.hs_ironman_only = False
+    app.shop_discount = 1.0
+    app.shop_invest = {}
     app.shop_selection = 0
     app.shop_type = "merchant"
     app.sell_selection = 0
@@ -824,6 +826,27 @@ class TestStates(unittest.TestCase):
         app.descend_floor()
         self.assertEqual(app.shop_stock["merchant"]["health_potion"], 3)
         self.assertEqual(app.shop_stock["merchant"]["iron_sword"], 1)
+        # quest: 3 rat tails -> discount
+        app.player.add_item("rat_tail", 3)
+        press(pyxel.KEY_Q)
+        app.update_shop()
+        self.assertEqual(app.shop_discount, 0.8)
+        self.assertNotIn("rat_tail", app.player.inventory)
+        # investment raises buyback
+        app.player.gold = 1000
+        press(pyxel.KEY_V)
+        app.update_shop()
+        self.assertEqual(app.shop_invest["merchant"], 1)
+        self.assertAlmostEqual(app.shop_buyback_mult(), 0.55)
+        # ratdog kill drops a tail
+        app2 = fresh_app()
+        app2.state = __import__("main").GameState.COMBAT
+        app2.player.x, app2.player.y = 1, 1
+        app2.grid[1][1].monster = {"name": "Skeletal Dungeon Ratdog",
+                                   "hp": 1, "max_hp": 2, "atk": 0, "xp": 5}
+        app2.player.base_m_ack = 99
+        app2.player_attack(app2.grid[1][1].monster, "melee")
+        self.assertIn("rat_tail", app2.player.inventory)
         press(pyxel.KEY_B)
         app.update_shop()
         self.assertEqual(app.state, GameState.EXPLORE)

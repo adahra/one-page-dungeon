@@ -59,6 +59,7 @@ ITEMS = {
     "tome_fire": {"name": "Tome of Flames", "type": "consumable", "effect": "teach_skill", "skill": "fireball", "val": 0, "price": 200, "desc": "Teaches Fireball"},
     "tome_smoke": {"name": "Tome of Shadows", "type": "consumable", "effect": "teach_skill", "skill": "smoke_bomb", "val": 0, "price": 200, "desc": "Teaches Smoke Bomb"},
     "mystery_egg": {"name": "Mysterious Egg", "type": "consumable", "effect": "hatch", "val": 0, "price": 100, "desc": "Hatches a companion"},
+    "rat_tail": {"name": "Rat Tail", "type": "quest", "val": 0, "price": 5, "desc": "Shopkeepers want these (3x = discount)"},
     "iron_sword": {"name": "Iron Sword", "type": "equipment", "slot": "weapon", "atk_bonus": 1, "price": 100, "desc": "+1 M-ACK"},
     "steel_sword": {"name": "Steel Sword", "type": "equipment", "slot": "weapon", "atk_bonus": 2, "price": 250, "desc": "+2 M-ACK"},
     "magic_wand": {"name": "Magic Wand", "type": "equipment", "slot": "weapon", "mgk_bonus": 1, "price": 100, "desc": "+1 MGK"},
@@ -91,6 +92,12 @@ SHOPS = {
         "items": ["greater_health", "greater_mana", "strength_potion", "defense_potion", "magic_potion", "steel_sword", "chainmail", "cloak", "magic_wand", "tome_fire", "tome_smoke"],
         "price_mult": 1.5,
         "buyback_mult": 0.3,
+    },
+    "enchanter": {
+        "name": "Mystic Enchanter",
+        "items": ["mana_potion", "greater_mana", "magic_potion", "xp_scroll", "magic_wand", "tome_power", "tome_heal", "tome_fire", "tome_smoke", "mystery_egg"],
+        "price_mult": 1.2,
+        "buyback_mult": 0.4,
     },
 }
 
