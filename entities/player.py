@@ -26,6 +26,7 @@ class Player:
         self.skills_unlocked = []
         self.cooldowns = {}
         self.companion = None
+        self.enchant = {"weapon": 0, "armor": 0, "accessory": 0}
         for slot, item_id in spec["equipment"].items():
             if item_id:
                 self.equipped[slot] = item_id
@@ -39,7 +40,7 @@ class Player:
         bonus = 0
         if self.equipped["weapon"] and self.equipped["weapon"] in ITEMS:
             bonus += ITEMS[self.equipped["weapon"]].get("atk_bonus", 0)
-        return self.base_m_ack + bonus
+        return self.base_m_ack + bonus + self.enchant.get("weapon", 0)
 
     @property
     def r_ack(self):
@@ -51,14 +52,15 @@ class Player:
         bonus = 0
         if self.equipped["armor"] and self.equipped["armor"] in ITEMS:
             bonus += ITEMS[self.equipped["armor"]].get("def_bonus", 0)
-        return self.base_defense + bonus + defense_modifier(self.statuses)
+        return self.base_defense + bonus + self.enchant.get("armor", 0) + defense_modifier(self.statuses)
 
     @property
     def magic(self):
         bonus = 0
         if self.equipped["weapon"] and self.equipped["weapon"] in ITEMS:
             bonus += ITEMS[self.equipped["weapon"]].get("mgk_bonus", 0)
-        return self.base_magic + bonus
+        wand = 1 if self.equipped["weapon"] == "magic_wand" else 0
+        return self.base_magic + bonus + wand * self.enchant.get("weapon", 0)
 
     def add_xp(self, amount):
         self.xp += amount
@@ -107,6 +109,25 @@ class Player:
             self.inventory[item_id] -= quantity
             if self.inventory[item_id] <= 0:
                 del self.inventory[item_id]
+
+    def enchant_item(self, item_id):
+        from data.game_data import ITEMS
+        ENCHANT_FUEL = {"weapon": "strength_potion", "armor": "defense_potion"}
+        item = ITEMS.get(item_id)
+        if not item or item.get("type") != "equipment":
+            return False, "Not equipment"
+        slot = item.get("slot")
+        fuel = ENCHANT_FUEL.get(slot)
+        if not fuel:
+            return False, "Can't enchant that"
+        if self.enchant.get(slot, 0) >= 3:
+            return False, "Max enchant (+3)"
+        if self.inventory.get(fuel, 0) < 1:
+            from data.game_data import ITEMS as _I
+            return False, f"Need {_I[fuel]['name']}"
+        self.remove_item(fuel)
+        self.enchant[slot] = self.enchant.get(slot, 0) + 1
+        return True, f"Enchanted {slot} +{self.enchant[slot]}!"
 
     def craft(self, item_id):
         from data.game_data import ITEMS, RECIPES

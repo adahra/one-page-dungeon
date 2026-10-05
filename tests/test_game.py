@@ -16,7 +16,8 @@ pyxel = types.ModuleType("pyxel")
 KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
-        "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F", "KEY_Q", "KEY_V"]
+        "KEY_6", "KEY_7", "KEY_C", "KEY_D", "KEY_F", "KEY_Q", "KEY_V",
+        "KEY_E"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -199,6 +200,9 @@ class TestPlayer(unittest.TestCase):
         p.add_item("iron_sword")
         ok, msg = p.craft("iron_sword")
         self.assertFalse(ok)
+        p.add_item("strength_potion")
+        ok, msg = p.enchant_item("iron_sword")
+        self.assertTrue(ok and p.m_ack == p.base_m_ack + 2)
         import random
         random.seed(0)
         p.add_item("mystery_egg")

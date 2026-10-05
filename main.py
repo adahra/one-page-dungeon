@@ -857,6 +857,12 @@ class App:
                 success, msg = self.player.craft(item_id)
                 self.hud.add_log(msg)
                 self.sound.play(6 if success else 4)
+        elif pyxel.btnp(pyxel.KEY_E):
+            if items and self.inventory_selection < len(items):
+                item_id = items[self.inventory_selection][0]
+                success, msg = self.player.enchant_item(item_id)
+                self.hud.add_log(msg)
+                self.sound.play(6 if success else 4)
         elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_I):
             if self.previous_state in (GameState.COMBAT, GameState.BOSS_COMBAT):
                 self.state = self.previous_state
@@ -901,6 +907,7 @@ class App:
                     "skills_unlocked": self.player.skills_unlocked,
                     "cooldowns": self.player.cooldowns,
                     "companion": self.player.companion,
+                    "enchant": self.player.enchant,
                 },
                 "dungeon": {
                     "grid": [[{
@@ -960,6 +967,7 @@ class App:
         self.player.skills_unlocked = p.get("skills_unlocked", [])
         self.player.cooldowns = p.get("cooldowns", {})
         self.player.companion = p.get("companion")
+        self.player.enchant = p.get("enchant", {"weapon": 0, "armor": 0, "accessory": 0})
         
         self.current_floor = data["dungeon"]["current_floor"]
         self.seed = data["dungeon"]["seed"]
