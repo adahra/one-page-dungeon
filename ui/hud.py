@@ -235,22 +235,24 @@ class HUD:
             pyxel.text(x, y + 15 + i * 14, f"{'> ' if i == selected else '  '}{d.capitalize()}", color)
             pyxel.text(x + 10, y + 15 + i * 14 + 8, f"    {desc}", 5)
 
-    def draw_shop(self, player, shop_type, selected_idx, shop_data, x, y, sell_idx=0):
+    def draw_shop(self, player, shop_type, selected_idx, shop_data, x, y, sell_idx=0, stock=None):
         from data.game_data import ITEMS
         pyxel.text(x, y, f"=== {shop_data['name'].upper()} ===", 10)
         pyxel.text(x, y + 12, f"Gold: {player.gold}", 10)
-        
+
         items = shop_data["items"]
         for i, item_id in enumerate(items):
             if i >= 12:
                 break
             item = ITEMS[item_id]
             price = int(item["price"] * shop_data["price_mult"])
-            color = 10 if i == selected_idx else 7
+            qty = stock.get(item_id, 0) if stock else 99
+            color = 10 if i == selected_idx else (5 if qty <= 0 else 7)
             prefix = "> " if i == selected_idx else "  "
-            can_afford = player.gold >= price
+            stock_txt = "SOLD" if qty <= 0 else (f"x{qty}" if qty < 99 else "")
+            can_afford = player.gold >= price and qty > 0
             price_color = 11 if can_afford else 8
-            pyxel.text(x, y + 24 + i * 10, f"{prefix}{item['name']}", color)
+            pyxel.text(x, y + 24 + i * 10, f"{prefix}{item['name']} {stock_txt}", color)
             pyxel.text(x + 120, y + 24 + i * 10, f"{price}G", price_color)
         
         if items and selected_idx < len(items):

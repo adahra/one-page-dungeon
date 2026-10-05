@@ -61,6 +61,7 @@ class App:
         self.shop_selection = 0
         self.shop_type = None
         self.sell_selection = 0
+        self.shop_stock = {}
         self.level_up_return = GameState.EXPLORE
         self.combat_log = []
         
@@ -93,14 +94,29 @@ class App:
         self.state = GameState.EXPLORE
         self.previous_state = None
         self.sell_selection = 0
+        self.restock_shops()
         self.level_up_return = GameState.EXPLORE
         self.hud.log_history.clear()
         self.hud.add_log("Welcome to the Lair of the Skull!")
         self.combat_log.clear()
         self.screen_shake = 0
 
+    def restock_shops(self):
+        self.shop_stock = {}
+        for shop_id, shop_data in SHOPS.items():
+            self.shop_stock[shop_id] = {}
+            for item_id in shop_data["items"]:
+                item = ITEMS.get(item_id, {})
+                self.shop_stock[shop_id][item_id] = (
+                    1 if item.get("type") == "equipment" else 3)
+
+    def shop_item_stock(self, item_id):
+        return self.shop_stock.get(self.shop_type, {}).get(item_id, 0)
+
     def descend_floor(self):
         self.current_floor += 1
+        self.restock_shops()
+        self.hud.add_log("Shops restocked!")
         self.player.x, self.player.y = 3, 3
         self.boss = Boss(self.difficulty)
         scale = 1 + BOSS_FLOOR_HP_SCALE * (self.current_floor - 1)
@@ -812,6 +828,7 @@ class App:
                     "difficulty": self.difficulty,
                 },
                 "boss": {"name": self.boss.name, "hp": self.boss.hp, "max_hp": self.boss.max_hp, "phase": self.boss.phase, "attacks": self.boss.attacks, "statuses": self.boss.statuses},
+                "shop_stock": self.shop_stock,
                 "state": self.state,
                 "log_history": self.hud.log_history,
             }
@@ -878,6 +895,9 @@ class App:
         self.boss.phase = b.get("phase", 0)
         self.boss.attacks = b.get("attacks", BOSS_DATA["phases"][0]["attacks"])
         self.boss.statuses = b.get("statuses", {})
+        self.shop_stock = data.get("shop_stock", {})
+        if not self.shop_stock:
+            self.restock_shops()
 
     def update_highscores(self):
         if pyxel.btnp(pyxel.KEY_ESCAPE):
@@ -955,10 +975,14 @@ class App:
                 item_id = items[self.shop_selection]
                 item = ITEMS[item_id]
                 price = int(item["price"] * shop_data["price_mult"])
-                
-                if self.player.gold >= price:
+
+                if self.shop_item_stock(item_id) <= 0:
+                    self.hud.add_log(f"{item['name']} sold out!")
+                    self.sound.play(4)
+                elif self.player.gold >= price:
                     self.player.gold -= price
                     self.player.add_item(item_id)
+                    self.shop_stock[self.shop_type][item_id] -= 1
                     self.hud.add_log(f"Bought {item['name']} for {price} Gold!")
                     self.sound.play(11)
                     self.particles.add_gold_effect(120, 100)
@@ -1215,7 +1239,7 @@ class App:
     def draw_shop(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
-        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy, self.sell_selection)
+        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy, self.sell_selection, self.shop_stock.get(self.shop_type, {}))
 
     def draw_upgrades(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)

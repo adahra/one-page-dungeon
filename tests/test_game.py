@@ -76,6 +76,7 @@ def fresh_app():
     app.shop_selection = 0
     app.shop_type = "merchant"
     app.sell_selection = 0
+    app.restock_shops()
     app.level_up_return = GameState.EXPLORE
     app.previous_state = None
     app.state = GameState.EXPLORE
@@ -772,12 +773,24 @@ class TestStates(unittest.TestCase):
         app = fresh_app()
         app.state = GameState.SHOP
         app.shop_type = "merchant"
-        app.player.gold = 100
+        app.player.gold = 1000
         press(pyxel.KEY_RETURN)
         app.update_shop()
         self.assertIn("health_potion", app.player.inventory)
-        press(pyxel.KEY_S)
-        app.update_shop()  # sells the potion back
+        self.assertEqual(app.shop_stock["merchant"]["health_potion"], 2)
+        # equipment stock is 1: buy iron_sword twice, second is sold out
+        app.shop_selection = 3
+        press(pyxel.KEY_RETURN)
+        app.update_shop()
+        self.assertEqual(app.shop_stock["merchant"]["iron_sword"], 0)
+        before = app.player.inventory.get("iron_sword")
+        press(pyxel.KEY_RETURN)
+        app.update_shop()
+        self.assertEqual(app.player.inventory.get("iron_sword"), before)
+        # descend restocks
+        app.descend_floor()
+        self.assertEqual(app.shop_stock["merchant"]["health_potion"], 3)
+        self.assertEqual(app.shop_stock["merchant"]["iron_sword"], 1)
         press(pyxel.KEY_B)
         app.update_shop()
         self.assertEqual(app.state, GameState.EXPLORE)

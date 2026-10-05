@@ -56,6 +56,7 @@ class SaveLoadSystem:
             "boss": {"name": boss.name, "hp": boss.hp, "max_hp": boss.max_hp,
                       "phase": boss.phase, "attacks": boss.attacks,
                       "statuses": getattr(boss, "statuses", {})},
+            "shop_stock": getattr(game_state, "shop_stock", {}),
             "state": game_state.state,
             "log_history": game_state.hud.log_history,
         }
