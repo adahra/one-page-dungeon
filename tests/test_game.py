@@ -16,7 +16,7 @@ pyxel = types.ModuleType("pyxel")
 KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
-        "KEY_6", "KEY_7"]
+        "KEY_6", "KEY_7", "KEY_C"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -185,6 +185,15 @@ class TestPlayer(unittest.TestCase):
         ok, msg = p.use_item("tome_fire")
         self.assertTrue(ok and "Already know" in msg)
         self.assertIn("tome_fire", p.inventory)  # not consumed twice
+        # crafting
+        p.add_item("health_potion", 2)
+        ok, msg = p.craft("health_potion")
+        self.assertTrue(ok and p.inventory.get("greater_health") == 1)
+        ok, _ = p.craft("health_potion")
+        self.assertFalse(ok)
+        p.add_item("iron_sword")
+        ok, msg = p.craft("iron_sword")
+        self.assertFalse(ok)
 
     def test_equip(self):
         from entities.player import Player

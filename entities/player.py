@@ -106,6 +106,19 @@ class Player:
             if self.inventory[item_id] <= 0:
                 del self.inventory[item_id]
 
+    def craft(self, item_id):
+        from data.game_data import ITEMS, RECIPES
+        for result, needs in RECIPES.items():
+            if needs.get(item_id, 0) > 0 and self.inventory.get(item_id, 0) >= needs[item_id]:
+                for ing, qty in needs.items():
+                    self.remove_item(ing, qty)
+                self.add_item(result)
+                return True, f"Crafted {ITEMS[result]['name']}!"
+        have = self.inventory.get(item_id, 0)
+        if any(item_id in needs for needs in RECIPES.values()):
+            return False, f"Need more (have {have})"
+        return False, "No recipe"
+
     def use_item(self, item_id):
         from data.game_data import ITEMS
         if item_id not in ITEMS or item_id not in self.inventory:

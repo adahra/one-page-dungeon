@@ -773,6 +773,12 @@ class App:
                     self.hud.add_log(msg)
                     if success:
                         self.sound.play(6)
+        elif pyxel.btnp(pyxel.KEY_C):
+            if items and self.inventory_selection < len(items):
+                item_id = items[self.inventory_selection][0]
+                success, msg = self.player.craft(item_id)
+                self.hud.add_log(msg)
+                self.sound.play(6 if success else 4)
         elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_I):
             if self.previous_state in (GameState.COMBAT, GameState.BOSS_COMBAT):
                 self.state = self.previous_state

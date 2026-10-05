@@ -148,6 +148,7 @@ class HUD:
         if items and selected_idx < len(items):
             sel_item = ITEMS.get(items[selected_idx][0], {"desc": ""})
             pyxel.text(x, y + 140, sel_item.get("desc", ""), 6)
+            pyxel.text(x, y + 150, "[Enter] Use/Equip  [C] Craft", 6)
 
     def draw_save_slots(self, saves, selected, x, y):
         pyxel.text(x, y, "SAVE/LOAD GAME", 10)

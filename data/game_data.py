@@ -105,6 +105,11 @@ MAX_LEVEL = 10
 FINAL_FLOOR = 5
 BOSS_FLOOR_HP_SCALE = 0.25
 
+RECIPES = {
+    "greater_health": {"health_potion": 2},
+    "greater_mana": {"mana_potion": 2},
+}
+
 CLASSES = {
     "warrior": {"name": "Warrior", "hp": 6, "mp": 2, "m_ack": 3, "r_ack": 1,
                 "defense": 2, "magic": 0, "evasion": 0,
