@@ -108,6 +108,7 @@
 ### Multiplayer (Local Co-op) ✓ experimental P2P
 - Host/Join over TCP (`systems/net.py`, port 8931), N players per net, shared seed, partner markers, room/boss/victory sync; combat local; silent fallback to solo
 - Reconnect ✓ (clients retry every 3s), chat ✓ (`/` box, Enter sends), host anti-cheat ✓ (teleport/damage/flood, 3 strikes = kick)
+- Host migration ✓ (roster + heartbeat, deterministic lowest-IP election, auto-failover without reseed)
 
 ### Modding Support
 - JSON-based content packs (monsters, items, rooms)

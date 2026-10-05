@@ -92,6 +92,9 @@ def fresh_app():
     app.mp_chat_open = False
     app.mp_chat_buf = ""
     app.mp_reconnect_at = 0.0
+    app.mp_roster = {}
+    app.mp_my_ip = ""
+    app.mp_last_beat = 0.0
     from systems.anticheat import HostGuard
     app.mp_guard = HostGuard()
     app.daily = None
@@ -1204,14 +1207,76 @@ class TestNet(unittest.TestCase):
         app = fresh_app()
         app.mp_role = "client"
         app.mp_ip = "127.0.0.1"
+        app.mp_my_ip = "10.0.0.9"
+        app.mp_roster = {}
         app.state = GameState.EXPLORE
         app._mp_on_total_loss()
-        self.assertEqual(app.mp_role, "client")
-        self.assertGreater(app.mp_reconnect_at, time.time())
+        # sole survivor takes over as host
+        self.assertEqual(app.mp_role, "host")
+        self.assertIsNotNone(app.mp_listener)
+        app._mp_leave()
+        self.assertIsNone(app.mp_role)
         # host loss clears role
         app.mp_role = "host"
         app._mp_on_total_loss()
         self.assertIsNone(app.mp_role)
+
+    def test_election_lowest_ip(self):
+        from main import GameState
+        app = fresh_app()
+        app.mp_role = "client"
+        app.mp_ip = "10.0.0.9"
+        app.mp_my_ip = "10.0.0.5"
+        app.mp_roster = {2: "10.0.0.7", 3: "10.0.0.5"}
+        app.state = GameState.EXPLORE
+        self.assertEqual(app._mp_elect_host(), "10.0.0.5")
+        app._mp_on_total_loss()
+        # self is lowest -> promote to host
+        self.assertEqual(app.mp_role, "host")
+        self.assertIsNotNone(app.mp_listener)
+        app._mp_leave()
+        self.assertIsNone(app.mp_role)
+        # not lowest -> fail over to winner
+        app2 = fresh_app()
+        app2.mp_role = "client"
+        app2.mp_ip = "10.0.0.9"
+        app2.mp_my_ip = "10.0.0.8"
+        app2.mp_roster = {2: "10.0.0.2"}
+        app2.state = GameState.EXPLORE
+        app2._mp_on_total_loss()
+        self.assertEqual(app2.mp_role, "client")
+        self.assertEqual(app2.mp_ip, "10.0.0.2")
+
+    def test_roster_and_heartbeat(self):
+        import socket
+        from systems.net import Link
+        from main import GameState
+        app = fresh_app()
+        app.mp_role = "host"
+        a, b = socket.socketpair()
+        app.mp_peers = {1: Link(a)}
+        lb = Link(b)
+        app._mp_roster_broadcast()
+        import time
+        got = []
+        for _ in range(100):
+            got += lb.poll()
+            if any(m.get("type") == "roster" for m in got):
+                break
+            time.sleep(0.01)
+        self.assertTrue(any(m.get("type") == "roster" for m in got))
+        app._mp_heartbeat()
+        got2 = []
+        for _ in range(100):
+            got2 += lb.poll()
+            if any(m.get("type") == "ping" for m in got2):
+                break
+            time.sleep(0.01)
+        self.assertTrue(any(m.get("type") == "ping" for m in got2))
+        app._mp_handle({"type": "ping"}, 1)  # ignored, no crash
+        app._mp_handle({"type": "roster", "members": [{"id": 2, "ip": "10.0.0.2"}]}, 1)
+        self.assertEqual(app.mp_roster, {2: "10.0.0.2"})
+        lb.close()
 
     def test_newgame_submenu(self):
         from main import GameState

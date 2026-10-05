@@ -97,6 +97,7 @@ New Game → Multiplayer: one side Hosts (port 8931, many partners can join mid-
 - Chat: `/` opens the box, Enter sends, `ESC` cancels
 - Reconnect: dropped clients retry every 3s automatically
 - Anti-cheat (host-side): teleport/damage/flood checks, 3 strikes = kick
+- Host migration: if the host drops, survivors deterministically elect the lowest IP as new host (auto-failover, no reseed)
 
 ### Quality of life
 - Auto-save on descend/level-up (`dungeon_auto.json`, not in ironman); Continue loads the newest save

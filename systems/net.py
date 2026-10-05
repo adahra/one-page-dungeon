@@ -48,6 +48,15 @@ class Link:
                 pass
         return msgs
 
+    def peer_ip(self):
+        try:
+            name = self.conn.getpeername()
+            if isinstance(name, tuple) and name:
+                return name[0]
+            return str(name) if name else ""
+        except OSError:
+            return ""
+
     def close(self):
         self.alive = False
         try:

@@ -86,6 +86,9 @@ class App:
         self.mp_chat_buf = ""
         self.mp_reconnect_at = 0.0
         self.mp_guard = HostGuard()
+        self.mp_roster = {}  # peer_id -> host-observed ip
+        self.mp_my_ip = ""
+        self.mp_last_beat = 0.0
         self.inventory_selection = 0
         self.save_slot_selection = 0
         self.shop_selection = 0
@@ -208,15 +211,52 @@ class App:
                 GameState.INVENTORY, GameState.MAP, GameState.SHOP,
                 GameState.LEVEL_UP)
 
+    def _mp_elect_host(self):
+        """Deterministic election: lowest IP wins. Returns winner ip or ''."""
+        import ipaddress
+        ips = set(self.mp_roster.values())
+        if self.mp_my_ip:
+            ips.add(self.mp_my_ip)
+        ips.discard("")
+
+        def key(ip):
+            try:
+                return (0, int(ipaddress.ip_address(ip)))
+            except ValueError:
+                return (1, ip)
+        ordered = sorted(ips, key=key)
+        return ordered[0] if ordered else ""
+
+    def _mp_promote_to_host(self):
+        try:
+            self.mp_listener = net_listen(MP_PORT)
+        except OSError:
+            self.hud.add_log("Failover failed (port busy)!")
+            self.sound.play(4)
+            return
+        self.mp_role = "host"
+        self.mp_reconnect_at = 0.0
+        self.mp_guard = HostGuard()
+        self.hud.add_log("Host lost! You take over (lowest IP).")
+        self.sound.play(10)
+
     def _mp_on_total_loss(self):
+        was_client = self.mp_role == "client"
+        was_in_game = self.state in self._mp_online_states()
         self._mp_cleanup()
-        if (self.mp_role == "client" and self.mp_ip
-                and self.state in self._mp_online_states()):
+        if not (was_client and was_in_game):
+            self.mp_role = None
+            return
+        winner = self._mp_elect_host()
+        if winner and winner == self.mp_my_ip:
+            self._mp_promote_to_host()
+        else:
+            if winner:
+                self.mp_ip = winner
+            self.mp_role = "client"
             import time as _t
             self.mp_reconnect_at = _t.time() + 3.0
-            self.hud.add_log("Link lost! Reconnecting...")
-        else:
-            self.mp_role = None
+            self.hud.add_log(f"Link lost! Failing over to {self.mp_ip or 'host'}...")
 
     def _mp_try_reconnect(self):
         import time as _t
@@ -229,7 +269,7 @@ class App:
                 self.mp_reconnect_at = _t.time() + 3.0
                 return
             self.mp_peers[0] = link
-            self.mp_role = "client_wait"
+            self.mp_role = "rejoin_wait"
             self.mp_reconnect_at = 0.0
             link.send({"type": "hello", "rejoin": True,
                        "id": self.mp_self_id})
@@ -269,9 +309,25 @@ class App:
                 self._mp_send_to(pid, {"type": "welcome",
                                        "seed": self.seed,
                                        "difficulty": self.difficulty,
-                                       "your_id": pid})
+                                       "your_id": pid,
+                                       "your_ip": link.peer_ip()})
                 self.hud.add_log(f"Partner P{pid + 1} joined!")
+                self._mp_roster_broadcast()
                 self.sound.play(10)
+        if self.mp_role == "rejoin_wait" and 0 in self.mp_peers:
+            link = self.mp_peers[0]
+            for msg in link.poll():
+                if msg.get("type") == "welcome":
+                    self.mp_my_ip = msg.get("your_ip", self.mp_my_ip)
+                    self.mp_self_id = msg.get("your_id", self.mp_self_id)
+                    self.mp_role = "client"
+                    self.hud.add_log("Re-synced! Continuing together.")
+                    self.sound.play(10)
+                    return
+            if not link.alive:
+                self.mp_peers.pop(0, None)
+                self._mp_on_total_loss()
+            return
         for pid, link in list(self.mp_peers.items()):
             for msg in link.poll():
                 msg["via"] = pid
@@ -283,8 +339,10 @@ class App:
                 self.partners.pop(pid, None)
                 self.mp_guard.forget(pid)
                 self.hud.add_log(f"Partner P{pid + 1} left.")
+                self._mp_roster_broadcast()
         if self.mp_role == "client" and not self.mp_peers:
             self._mp_on_total_loss()
+        self._mp_heartbeat()
 
     def _mp_guard_msg(self, pid, msg):
         """Host-side anti-cheat. Returns False if the peer was kicked."""
@@ -312,6 +370,11 @@ class App:
         mtype = msg.get("type")
         sender = msg.get("via", pid)
         name = f"P{sender + 1}"
+        if mtype == "ping":
+            return
+        if mtype == "roster":
+            self.mp_roster = {m["id"]: m["ip"] for m in msg.get("members", [])}
+            return
         if mtype == "pos":
             self.partners[sender] = {"x": msg.get("x", 3),
                                      "y": msg.get("y", 3),
@@ -374,6 +437,23 @@ class App:
         for pid, link in self.mp_peers.items():
             if pid != exclude and link.alive:
                 link.send(dict(msg))
+
+    def _mp_roster_broadcast(self):
+        if self.mp_role != "host":
+            return
+        members = []
+        for pid, link in self.mp_peers.items():
+            if link.alive:
+                members.append({"id": pid, "ip": link.peer_ip()})
+        msg = {"type": "roster", "members": members}
+        for pid in self.mp_peers:
+            self._mp_send_to(pid, dict(msg))
+
+    def _mp_heartbeat(self):
+        import time as _t
+        if self.mp_peers and _t.time() - self.mp_last_beat > 5.0:
+            self.mp_last_beat = _t.time()
+            self._mp_send({"type": "ping"})
 
     def update(self):
         self.particles.update()
@@ -503,9 +583,11 @@ class App:
                 self._mp_send_to(pid, {"type": "welcome",
                                        "seed": self.seed,
                                        "difficulty": self.difficulty,
-                                       "your_id": pid})
+                                       "your_id": pid,
+                                       "your_ip": link.peer_ip()})
                 self.mp_role = "host"
                 self.hud.add_log(f"Partner P{pid + 1} joined! (more can join)")
+                self._mp_roster_broadcast()
                 self.sound.play(10)
                 self.state = GameState.CLASS_SELECT
                 self.class_selection = 0
@@ -517,6 +599,7 @@ class App:
                     self.mp_welcome = msg
                     self.mp_role = "client"
                     self.mp_self_id = msg.get("your_id", 0)
+                    self.mp_my_ip = msg.get("your_ip", "")
                     self.difficulty = msg.get("difficulty", "normal")
                     self.state = GameState.CLASS_SELECT
                     self.class_selection = 0
@@ -646,6 +729,8 @@ class App:
         self._mp_cleanup()
         self.mp_role = None
         self.mp_ip = ""
+        self.mp_roster = {}
+        self.mp_my_ip = ""
 
     def update_class_select(self):
         classes = list(CLASSES.keys())
