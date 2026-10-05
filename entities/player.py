@@ -27,6 +27,10 @@ class Player:
         for slot, item_id in spec["equipment"].items():
             if item_id:
                 self.equipped[slot] = item_id
+        if self.char_class == "paladin":
+            self.add_status("bless", 99)
+        if self.char_class == "necromancer":
+            self.skills_unlocked.append("fireball")
 
     @property
     def m_ack(self):

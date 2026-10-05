@@ -54,7 +54,8 @@ class SaveLoadSystem:
                 "difficulty": game_state.difficulty,
             },
             "boss": {"name": boss.name, "hp": boss.hp, "max_hp": boss.max_hp,
-                      "phase": boss.phase, "attacks": boss.attacks},
+                      "phase": boss.phase, "attacks": boss.attacks,
+                      "statuses": getattr(boss, "statuses", {})},
             "state": game_state.state,
             "log_history": game_state.hud.log_history,
         }

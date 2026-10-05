@@ -7,7 +7,7 @@ from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA,
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
-from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, UPGRADES
+from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, fortune_mult, UPGRADES
 from entities.player import Player
 from entities.room import Room
 from entities.boss import Boss
@@ -188,8 +188,14 @@ class App:
             self.class_selection = (self.class_selection + 1) % len(classes)
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            chosen = classes[self.class_selection]
+            req = CLASSES[chosen].get("unlock_victories", 0)
+            if self.meta.get("victories", 0) < req:
+                self.hud.add_log(f"Locked: win {req}x to unlock {CLASSES[chosen]['name']}!")
+                self.sound.play(4)
+                return
             self.sound.play(10)
-            self.pending_class = classes[self.class_selection]
+            self.pending_class = chosen
             self.state = GameState.DIFFICULTY
             self.menu_selection = 1
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
@@ -315,20 +321,21 @@ class App:
                 self.state = GameState.GAME_OVER
                 return
 
-        # Treasure (richer on deeper floors)
+        # Treasure (richer on deeper floors, luckier with Fortune)
         if room.treasure:
             tr = room.treasure
             floor_bonus = self.current_floor - 1
+            loot_mult = fortune_mult(self.meta)
             if tr["type"] == "gold":
-                amount = tr["val"] + floor_bonus
+                amount = int((tr["val"] + floor_bonus) * loot_mult)
                 self.player.add_gold(amount)
                 self.hud.add_log(f"Found {tr['name']}! +{amount} Gold")
             elif tr["type"] == "gold_d6":
-                amount = random.randint(1, 6) * tr["val"] + floor_bonus
+                amount = int((random.randint(1, 6) * tr["val"] + floor_bonus) * loot_mult)
                 self.player.add_gold(amount)
                 self.hud.add_log(f"Found {tr['name']}! +{amount} Gold")
             elif tr["type"] == "gold_2d6":
-                amount = (random.randint(1, 6) + random.randint(1, 6)) * tr["val"] + floor_bonus
+                amount = int(((random.randint(1, 6) + random.randint(1, 6)) * tr["val"] + floor_bonus) * loot_mult)
                 self.player.add_gold(amount)
                 self.hud.add_log(f"Found {tr['name']}! +{amount} Gold")
             elif tr["type"] == "heal_hp":
@@ -369,6 +376,10 @@ class App:
 
         # Stairs (after treasure, slips past any guardian)
         if room.feature and room.feature["effect"] == "stairs":
+            if self.current_floor >= FINAL_FLOOR:
+                self.hud.add_log("The depths end here. Face the Skull!")
+                room.cleared = True
+                return
             if room.monster and room.monster["hp"] > 0:
                 self.hud.add_log("You slip past the guardian!")
             self.hud.add_log("Descending...")
@@ -471,7 +482,11 @@ class App:
         hp_left = enemy.hp if is_boss else enemy["hp"]
         if hp_left > 0:
             return False
+        return self._kill_enemy(enemy)
 
+    def _kill_enemy(self, enemy):
+        """Rewards + transitions for a dead dict-monster or Boss. Returns True."""
+        is_boss = hasattr(enemy, "hp")
         if is_boss:
             enemy.hp = 0
             # Get XP gain safely
@@ -484,7 +499,7 @@ class App:
         else:
             enemy["hp"] = 0
             xp_gain = enemy.get("xp", 10)
-        gold_gain = random.randint(1, 3) * self.current_floor
+        gold_gain = int(random.randint(1, 3) * self.current_floor * fortune_mult(self.meta))
         leveled = self.player.add_xp(xp_gain)
         self.player.add_gold(gold_gain)
         self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
@@ -560,9 +575,56 @@ class App:
 
         if self._deal_damage(enemy, damage):
             return
+        if skill_id == "fireball":
+            self._apply_enemy_status(enemy, "burn", 2)
+        elif skill_id == "power_strike" and random.random() < 0.25:
+            self._apply_enemy_status(enemy, "bleed", 2)
         self.enemy_turn(enemy)
 
+    def _enemy_statuses(self, enemy):
+        if hasattr(enemy, "statuses"):
+            return enemy.statuses
+        return enemy.setdefault("statuses", {})
+
+    def _apply_enemy_status(self, enemy, effect, turns=2):
+        from systems.status import EFFECTS
+        if effect not in EFFECTS:
+            return
+        st = self._enemy_statuses(enemy)
+        st[effect] = max(st.get(effect, 0), turns)
+        ename = enemy.name if hasattr(enemy, "name") else enemy["name"]
+        self.hud.add_log(f"{ename} is {EFFECTS[effect]['name']}ed!")
+        self.combat_log.append(f"{ename}: {EFFECTS[effect]['name']}")
+
+    def _tick_enemy_statuses(self, enemy):
+        """Tick enemy DoT at the start of its turn. Returns True if it died."""
+        from systems.status import DOT_EFFECTS, EFFECTS
+        st = self._enemy_statuses(enemy)
+        dot = sum(1 for e in st if e in DOT_EFFECTS)
+        for effect in list(st):
+            st[effect] -= 1
+            if st[effect] <= 0:
+                del st[effect]
+        if not dot:
+            return False
+        ename = enemy.name if hasattr(enemy, "name") else enemy["name"]
+        if hasattr(enemy, "hp"):
+            enemy.hp -= dot
+            hp_left = enemy.hp
+        else:
+            enemy["hp"] -= dot
+            hp_left = enemy["hp"]
+        self.hud.add_log(f"{ename} suffers {dot} DoT!")
+        self.combat_log.append(f"DoT: {dot} to {ename}")
+        self.particles.add_damage_numbers(180, 60, dot, 9)
+        if hp_left <= 0:
+            self._kill_enemy(enemy)
+            return True
+        return False
+
     def enemy_turn(self, enemy):
+        if self._tick_enemy_statuses(enemy):
+            return
         if self.state == GameState.BOSS_COMBAT:
             if self.boss.should_phase_change():
                 self.boss.next_phase()
@@ -640,6 +702,7 @@ class App:
                 score = self.calculate_score()
                 self.save_load.save_highscore("Hero", score, self.difficulty, self.current_floor, True)
                 self.meta["soul_fragments"] += 3
+                self.meta["victories"] = self.meta.get("victories", 0) + 1
                 save_meta(self.meta)
                 self.hud.add_log("THE KING'S SKULL DEFEATED! +3 Soul Fragments")
                 self.sound.play(14)
@@ -748,7 +811,7 @@ class App:
                     "seed": self.seed,
                     "difficulty": self.difficulty,
                 },
-                "boss": {"name": self.boss.name, "hp": self.boss.hp, "max_hp": self.boss.max_hp, "phase": self.boss.phase, "attacks": self.boss.attacks},
+                "boss": {"name": self.boss.name, "hp": self.boss.hp, "max_hp": self.boss.max_hp, "phase": self.boss.phase, "attacks": self.boss.attacks, "statuses": self.boss.statuses},
                 "state": self.state,
                 "log_history": self.hud.log_history,
             }
@@ -814,6 +877,7 @@ class App:
         self.boss.max_hp = b["max_hp"]
         self.boss.phase = b.get("phase", 0)
         self.boss.attacks = b.get("attacks", BOSS_DATA["phases"][0]["attacks"])
+        self.boss.statuses = b.get("statuses", {})
 
     def update_highscores(self):
         if pyxel.btnp(pyxel.KEY_ESCAPE):
@@ -1004,7 +1068,8 @@ class App:
         self.hud.draw_title(10 + sx, 30 + sy, self.menu_selection)
 
     def draw_class_select(self, sx, sy):
-        self.hud.draw_class_select(self.class_selection, 30 + sx, 30 + sy)
+        self.hud.draw_class_select(self.class_selection, 30 + sx, 30 + sy,
+                                   self.meta.get("victories", 0))
 
     def draw_difficulty(self, sx, sy):
         self.hud.draw_difficulty_select(30 + sx, 30 + sy, self.menu_selection)
@@ -1069,6 +1134,7 @@ class App:
         # Enemy sprite area
         pyxel.text(100 + sx, 30 + sy, ename, 8)
         pyxel.text(100 + sx, 40 + sy, f"HP: {ehp}", 7)
+        self.hud.draw_enemy_statuses(enemy, 100 + sx, 50 + sy)
         
         # Simple enemy representation
         ex, ey = 180 + sx, 70 + sy

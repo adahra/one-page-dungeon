@@ -96,6 +96,8 @@ class TestPlayer(unittest.TestCase):
         r = Player("rogue")
         self.assertEqual((r.evasion, r.base_r_ack), (2, 3))
         self.assertEqual(Player("nope").char_class, "warrior")
+        self.assertTrue(Player("paladin").has_status("bless"))
+        self.assertIn("fireball", Player("necromancer").skills_unlocked)
 
     def test_properties_with_equipment(self):
         from entities.player import Player
@@ -341,7 +343,8 @@ class TestStatusSkillsMeta(unittest.TestCase):
         M.META_FILE = tmp
         try:
             self.assertEqual(M.load_meta(),
-                             {"soul_fragments": 0, "upgrades": {}})
+                             {"soul_fragments": 0, "upgrades": {},
+                              "victories": 0})
             meta = {"soul_fragments": 10, "upgrades": {}}
             self.assertTrue(M.save_meta(meta))
             ok, _ = M.buy_upgrade(meta, "vitality")
@@ -359,6 +362,8 @@ class TestStatusSkillsMeta(unittest.TestCase):
             self.assertEqual((p.max_hp, p.max_mp, p.gold, p.evasion),
                              (8, 3, 15, 1))
             self.assertEqual(M.upgrade_cost("swiftness", 0), 2)
+            self.assertEqual(M.fortune_mult({"upgrades": {"fortune": 3}}),
+                             1.3)
         finally:
             M.META_FILE = old
 
@@ -556,6 +561,23 @@ class TestCombat(unittest.TestCase):
         app.player.base_m_ack = 99
         self.assertTrue(app._deal_damage(boss, 5))
 
+    def test_skill_status_and_dot_tick(self):
+        import random
+        app = self._combat_app()
+        app.player.skills_unlocked = ["fireball"]
+        app.player.base_magic = 1
+        app.player.mp = 4
+        random.seed(1)
+        app.use_skill(app.grid[1][1].monster, "fireball")
+        st = app.grid[1][1].monster.get("statuses", {})
+        self.assertGreater(st.get("burn", 0), 0)
+        weak = {"name": "W", "hp": 1, "max_hp": 5, "atk": 0, "xp": 5,
+                "statuses": {"burn": 2}}
+        app.enemy_turn(weak)
+        self.assertEqual(weak["hp"], 0)
+        from main import GameState
+        self.assertEqual(app.state, GameState.EXPLORE)
+
 
 class TestRooms(unittest.TestCase):
     def test_trap_death(self):
@@ -676,15 +698,19 @@ class TestStates(unittest.TestCase):
         from main import GameState
         app = fresh_app()
         app.state = GameState.CLASS_SELECT
-        app.class_selection = 1
+        app.class_selection = 3  # paladin, locked at 0 victories
         press(pyxel.KEY_RETURN)
         app.update_class_select()
-        self.assertEqual(app.pending_class, "mage")
+        self.assertEqual(app.state, GameState.CLASS_SELECT)
+        app.meta["victories"] = 1
+        press(pyxel.KEY_RETURN)
+        app.update_class_select()
+        self.assertEqual(app.pending_class, "paladin")
         self.assertEqual(app.state, GameState.DIFFICULTY)
         press(pyxel.KEY_RETURN)
         app.update_difficulty()
         self.assertEqual(app.state, GameState.EXPLORE)
-        self.assertEqual(app.player.char_class, "mage")
+        self.assertEqual(app.player.char_class, "paladin")
 
     def test_explore(self):
         from main import GameState
@@ -834,6 +860,124 @@ class TestStates(unittest.TestCase):
         self.assertEqual(app.current_floor, 2)
         self.assertGreater(app.boss.hp, hp)
         self.assertGreater(app.calculate_score(), 0)
+
+
+class TestRNGProperties(unittest.TestCase):
+    """Seed-sweep invariants (stdlib property-style, no extra deps)."""
+
+    def test_damage_never_zero_or_negative(self):
+        import random
+        for seed in range(50):
+            random.seed(seed)
+            app = fresh_app()
+            from main import GameState
+            app.state = GameState.COMBAT
+            app.player.x, app.player.y = 1, 1
+            for atk in ["melee", "ranged", "magic"]:
+                app.grid[1][1].monster = {"name": "T", "hp": 500,
+                                          "max_hp": 500, "atk": 0, "xp": 5}
+                app.player.hp = 500
+                app.player.mp = 10
+                before = app.grid[1][1].monster["hp"]
+                app.player_attack(app.grid[1][1].monster, atk)
+                after = app.grid[1][1].monster["hp"]
+                self.assertLess(after, before, f"seed {seed} {atk}")
+                self.assertGreaterEqual(app.player.hp, 0)
+
+    def test_room_gen_invariants(self):
+        import random
+        from entities.room import Room
+        from data.game_data import MONSTERS, FEATURES, TREASURES
+        for seed in range(100):
+            random.seed(seed)
+            for diff in ["easy", "normal", "hard", "nightmare"]:
+                r = Room(0, 1)
+                r.generate_content(diff, 5)
+                if r.monster:
+                    self.assertGreaterEqual(r.monster["hp"], 1)
+                    self.assertGreaterEqual(r.monster["max_hp"], 1)
+                    self.assertGreaterEqual(r.monster["atk"], 0)
+                if r.feature and r.feature["effect"] == "trap":
+                    self.assertGreaterEqual(r.feature["val"], 1)
+
+    def test_boss_attacks_bounded(self):
+        import random
+        from entities.boss import Boss
+        for seed in range(30):
+            random.seed(seed)
+            b = Boss("nightmare")
+            for atk in b.attacks:
+                dmg, *_ = b.execute_attack(atk, 0)
+                self.assertGreaterEqual(dmg, 1)
+
+
+class TestFullRun(unittest.TestCase):
+    """Scripted bot: clear 5 floors and win, headless."""
+
+    def test_run_to_victory(self):
+        import random
+        import systems.meta as M
+        from main import GameState
+        random.seed(7)
+        app = fresh_app()
+        app.player.base_m_ack = 99
+        app.player.base_magic = 99
+        app.player.max_hp = app.player.hp = 9999
+        app.player.max_mp = app.player.mp = 999
+        old_meta = M.META_FILE
+        d = tempfile.mkdtemp()
+        cwd = os.getcwd()
+        os.chdir(d)
+        M.META_FILE = os.path.join(d, "meta.json")
+        try:
+            turns = 0
+            while app.state != GameState.VICTORY and turns < 2000:
+                turns += 1
+                if app.state == GameState.EXPLORE:
+                    moved = False
+                    for yy in range(4):
+                        for xx in range(4):
+                            room = app.grid[yy][xx]
+                            if room.is_boss_room or (room.explored and
+                                                     room.cleared):
+                                continue
+                            app.player.x, app.player.y = xx, yy
+                            if room.explored:
+                                # Re-entered room: fight live monster or
+                                # mark cleared and move on.
+                                if (room.monster and
+                                        room.monster["hp"] > 0):
+                                    app.state = GameState.COMBAT
+                                else:
+                                    room.cleared = True
+                            else:
+                                room.generate_content(app.difficulty,
+                                                      app.current_floor)
+                                app.resolve_room_entry(room)
+                            moved = True
+                            break
+                        if moved or app.state != GameState.EXPLORE:
+                            break
+                    else:
+                        app.player.x, app.player.y = 0, 0
+                        app.state = GameState.BOSS_COMBAT
+                elif app.state in (GameState.COMBAT, GameState.BOSS_COMBAT):
+                    enemy = (app.boss if app.state == GameState.BOSS_COMBAT
+                             else app.grid[app.player.y][app.player.x].monster)
+                    app.player_attack(enemy, "melee")
+                elif app.state == GameState.LEVEL_UP:
+                    app.player.stat_points = 0
+                    app.update_level_up()
+                elif app.state == GameState.SHOP:
+                    app.grid[app.player.y][app.player.x].cleared = True
+                    app.state = GameState.EXPLORE
+                else:
+                    break
+            self.assertEqual(app.state, GameState.VICTORY)
+            self.assertEqual(app.current_floor, 5)
+        finally:
+            os.chdir(cwd)
+            M.META_FILE = old_meta
 
 
 if __name__ == "__main__":

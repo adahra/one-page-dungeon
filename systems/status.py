@@ -3,12 +3,13 @@
 EFFECTS = {
     "poison": {"name": "Poison", "color": 2, "desc": "Loses 1 HP per turn"},
     "bleed": {"name": "Bleed", "color": 8, "desc": "Loses 1 HP per turn"},
+    "burn": {"name": "Burn", "color": 9, "desc": "Loses 1 HP per turn"},
     "stun": {"name": "Stun", "color": 10, "desc": "Misses next action"},
     "curse": {"name": "Curse", "color": 5, "desc": "-1 DEF while active"},
     "bless": {"name": "Bless", "color": 11, "desc": "+1 DEF while active"},
 }
 
-DOT_EFFECTS = ("poison", "bleed")
+DOT_EFFECTS = ("poison", "bleed", "burn")
 
 
 def defense_modifier(statuses):

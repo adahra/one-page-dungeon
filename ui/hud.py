@@ -78,6 +78,13 @@ class HUD:
             if effect in EFFECTS:
                 pyxel.text(x, y + i * 8, f"{EFFECTS[effect]['name']} ({turns})", EFFECTS[effect]["color"])
 
+    def draw_enemy_statuses(self, enemy, x, y):
+        from systems.status import EFFECTS
+        st = enemy.statuses if hasattr(enemy, "statuses") else enemy.get("statuses", {})
+        for i, (effect, turns) in enumerate(st.items()):
+            if effect in EFFECTS:
+                pyxel.text(x, y + i * 8, f"{EFFECTS[effect]['name']} ({turns})", EFFECTS[effect]["color"])
+
     def draw_explore_hud(self, x, y):
         pyxel.text(x, y, "EXPLORE:", 11)
         pyxel.text(x, y + 10, "Arrows: Move  [I] Inv  [M] Map", 7)
@@ -190,12 +197,15 @@ class HUD:
         options = ["New Game", "Continue", "High Scores", "Settings", "Upgrades", "Quit"]
         self.draw_menu(options, selected, x + 20, y + 40)
 
-    def draw_class_select(self, selected, x, y):
+    def draw_class_select(self, selected, x, y, victories=0):
         from data.game_data import CLASSES
         pyxel.text(x, y, "CHOOSE CLASS", 10)
         for i, (cid, spec) in enumerate(CLASSES.items()):
-            color = 10 if i == selected else 7
-            pyxel.text(x, y + 15 + i * 22, f"{'> ' if i == selected else '  '}{spec['name']}", color)
+            req = spec.get("unlock_victories", 0)
+            locked = victories < req
+            color = 5 if locked else (10 if i == selected else 7)
+            label = spec["name"] + (f" [win {req}x]" if locked else "")
+            pyxel.text(x, y + 15 + i * 22, f"{'> ' if i == selected else '  '}{label}", color)
             pyxel.text(x + 10, y + 15 + i * 22 + 8,
                        f"HP{spec['hp']} MP{spec['mp']} ATK{spec['m_ack']} R{spec['r_ack']} D{spec['defense']} M{spec['magic']} E{spec['evasion']}", 5)
             pyxel.text(x + 10, y + 15 + i * 22 + 14, spec["desc"][:34], 6)

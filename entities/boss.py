@@ -13,6 +13,14 @@ class Boss:
         self.hp = int(BOSS_DATA["phases"][0]["hp"] * self.diff_mod["monster_hp_mult"])
         self.max_hp = self.hp
         self.attacks = BOSS_DATA["phases"][0]["attacks"].copy()
+        self.statuses = {}
+
+    def add_status(self, effect, turns=2):
+        from systems.status import EFFECTS
+        if effect not in EFFECTS:
+            return False
+        self.statuses[effect] = max(self.statuses.get(effect, 0), turns)
+        return True
 
     def next_phase(self):
         self.phase += 1
@@ -22,6 +30,7 @@ class Boss:
             self.hp = int(phase_data["hp"] * self.diff_mod["monster_hp_mult"])
             self.max_hp = self.hp
             self.attacks = phase_data["attacks"].copy()
+            self.statuses = {}
             return True
         return False
 

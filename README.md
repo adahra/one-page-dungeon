@@ -56,6 +56,8 @@ python3 main.py                   # 256x192 window, requires a display
 | Warrior | 6 | 2 | 3 | 1 | 2 | 0 | 0 | Iron Sword, Leather Armor |
 | Mage | 3 | 7 | 1 | 1 | 0 | 3 | 0 | Magic Wand |
 | Rogue | 4 | 4 | 2 | 3 | 1 | 1 | 2 | Leather Armor, Cloak of Shadows |
+| Paladin 🔒1 win | 7 | 4 | 3 | 1 | 3 | 1 | 0 | Steel Sword, Chainmail, start Blessed |
+| Necromancer 🔒2 wins | 4 | 9 | 1 | 1 | 0 | 4 | 1 | Wand, Cloak, starts with Fireball |
 
 ### Floors
 - Find **Descending Stairs** (or beat each floor's boss) to go deeper
@@ -63,10 +65,10 @@ python3 main.py                   # 256x192 window, requires a display
 - Floor 1–4 boss kills make the Skull retreat deeper instead of victory
 
 ### Status effects
-Traps and boss moves inflict poison/bleed (1 HP/turn), stun (miss action), curse (−1 DEF); Fountain of Light cleanses and grants bless (+1 DEF). Shown in stats and combat HUD.
+Traps and boss moves inflict poison/bleed/burn (1 HP/turn), stun (miss action), curse (−1 DEF); Fountain of Light cleanses and grants bless (+1 DEF). Player skills inflict too: Fireball burns, Power Strike may bleed. Shown in stats and combat HUD.
 
 ### Meta-progression
-Floor bosses drop Soul Fragments (+1 retreat, +3 victory). Spend them on the title-screen Upgrades: Vitality (+2 Max HP), Focus (+1 Max MP), Greed (+15 starting gold), Swiftness (+EVA). Persists in `dungeon_meta.json`.
+Floor bosses drop Soul Fragments (+1 retreat, +3 victory). Spend them on the title-screen Upgrades: Vitality (+2 Max HP), Focus (+1 Max MP), Greed (+15 starting gold), Swiftness (+EVA), Fortune (+10% gold loot). Victories also unlock Paladin (1) and Necromancer (2). Persists in `dungeon_meta.json`.
 
 ### Difficulty
 
@@ -101,7 +103,7 @@ Floor bosses drop Soul Fragments (+1 retreat, +3 victory). Spend them on the tit
 ├── entities/            # player.py (class/stats/status/skills), room.py (lazy gen), boss.py
 ├── systems/             # sound.py, save_load.py, particles.py, status.py, skills.py, meta.py
 ├── ui/hud.py            # All rendering
-├── tests/test_game.py   # 46 headless unittests (pyxel stubbed)
+├── tests/test_game.py   # 51 headless unittests (pyxel stubbed)
 ├── dungeon_game.py      # Legacy prototype, ignored
 ├── FEATURES.md          # Roadmap
 ```
@@ -111,7 +113,7 @@ Saves: `dungeon_save_0/1/2.json`; highscores: `dungeon_highscores.json`; meta: `
 ## Tests
 
 ```bash
-python3 -m unittest discover -s tests   # 46 tests, no display needed
+python3 -m unittest discover -s tests   # 51 tests, no display needed
 ```
 
 ## Resources

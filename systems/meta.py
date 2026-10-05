@@ -14,6 +14,8 @@ UPGRADES = {
               "desc": "+15 starting gold / level"},
     "swiftness": {"name": "Swiftness", "max": 4, "base_cost": 2,
                   "desc": "+1 Evasion every 2 levels"},
+    "fortune": {"name": "Fortune", "max": 5, "base_cost": 2,
+                "desc": "+10% gold from loot / level"},
 }
 
 
@@ -22,16 +24,21 @@ def upgrade_cost(upgrade_id, level):
     return spec["base_cost"] + level
 
 
+def fortune_mult(meta):
+    return 1 + 0.1 * meta.get("upgrades", {}).get("fortune", 0)
+
+
 def load_meta():
     if not os.path.exists(META_FILE):
-        return {"soul_fragments": 0, "upgrades": {}}
+        return {"soul_fragments": 0, "upgrades": {}, "victories": 0}
     try:
         with open(META_FILE) as f:
             data = json.load(f)
         return {"soul_fragments": data.get("soul_fragments", 0),
-                "upgrades": data.get("upgrades", {})}
+                "upgrades": data.get("upgrades", {}),
+                "victories": data.get("victories", 0)}
     except Exception:
-        return {"soul_fragments": 0, "upgrades": {}}
+        return {"soul_fragments": 0, "upgrades": {}, "victories": 0}
 
 
 def save_meta(meta):

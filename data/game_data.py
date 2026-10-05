@@ -118,6 +118,16 @@ CLASSES = {
               "defense": 1, "magic": 1, "evasion": 2,
               "equipment": {"weapon": None, "armor": "leather_armor", "accessory": "cloak"},
               "desc": "High EVA/R-ACK, dodgy"},
+    "paladin": {"name": "Paladin", "hp": 7, "mp": 4, "m_ack": 3, "r_ack": 1,
+                "defense": 3, "magic": 1, "evasion": 0,
+                "equipment": {"weapon": "steel_sword", "armor": "chainmail", "accessory": None},
+                "desc": "Holy tank, starts blessed",
+                "unlock_victories": 1},
+    "necromancer": {"name": "Necromancer", "hp": 4, "mp": 9, "m_ack": 1, "r_ack": 1,
+                    "defense": 0, "magic": 4, "evasion": 1,
+                    "equipment": {"weapon": "magic_wand", "armor": None, "accessory": "cloak"},
+                    "desc": "Dark caster, starts with Fireball",
+                    "unlock_victories": 2},
 }
 
 CLASS_GROWTH = {
