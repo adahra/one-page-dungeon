@@ -51,6 +51,15 @@ class App:
         self.save_load = SaveLoadSystem()
         self.particles = ParticleSystem()
         self.hud = HUD()
+        try:
+            from ui.sprites import load_into_bank
+            load_into_bank(pyxel.images)
+            self.sprites_ok = True
+        except Exception:
+            self.sprites_ok = False
+        self.combat_anim = 0
+        self.hit_flash = 0
+        self.transition = 0
         self.meta = load_meta()
         
         self.state = GameState.TITLE
@@ -201,6 +210,7 @@ class App:
         self.hud.add_log(f"Split: {self.elapsed_str()}")
         self.hud.add_log(f"The Skull grows stronger (HP {self.boss.hp})...")
         self.sound.play(13)
+        self.transition = 10
         self._autosave(f"floor {self.current_floor}")
 
     def _mp_peers_alive(self):
@@ -460,6 +470,12 @@ class App:
 
         if self.screen_shake > 0:
             self.screen_shake -= 1
+        if self.combat_anim > 0:
+            self.combat_anim -= 1
+        if self.hit_flash > 0:
+            self.hit_flash -= 1
+        if self.transition > 0:
+            self.transition -= 1
 
         if self.mp_peers and self.state not in (GameState.TITLE, GameState.NEWGAME, GameState.MULTIPLAYER, GameState.CLASS_SELECT, GameState.DIFFICULTY):
             self._mp_poll()
@@ -1087,6 +1103,8 @@ class App:
         self.hud.add_log(f"You hit {ename} for {damage}!")
         self.combat_log.append(f"You deal {damage} damage")
         self.screen_shake = 4
+        self.combat_anim = 6
+        self.hit_flash = 4
 
         hp_left = enemy.hp if is_boss else enemy["hp"]
         if hp_left > 0:
@@ -1239,6 +1257,10 @@ class App:
         self.hud.add_log(f"{ename} suffers {dot} DoT!")
         self.combat_log.append(f"DoT: {dot} to {ename}")
         self.particles.add_damage_numbers(180, 60, dot, 9)
+        if "burn" in st:
+            self.particles.add_fire_effect(180, 70)
+        else:
+            self.particles.add_poison_effect(180, 70)
         if hp_left <= 0:
             self._kill_enemy(enemy)
             return True
@@ -1317,6 +1339,7 @@ class App:
             self.hud.add_log(f"Poison/bleed! HP -{dot_dmg}")
             self.combat_log.append(f"Status damage: {dot_dmg}")
             self.particles.add_damage_numbers(30, 44, dot_dmg, 2)
+            self.particles.add_poison_effect(30, 30)
         for effect in expired:
             from systems.status import EFFECTS
             self.hud.add_log(f"{EFFECTS[effect]['name']} wore off.")
@@ -1814,7 +1837,7 @@ class App:
     def draw(self):
         shake_x = random.randint(-2, 2) if self.screen_shake > 0 else 0
         shake_y = random.randint(-2, 2) if self.screen_shake > 0 else 0
-        
+
         pyxel.cls(0)
         
         if self.state == GameState.TITLE:
@@ -1851,6 +1874,10 @@ class App:
             self.draw_game_over(shake_x, shake_y)
         
         self.particles.draw()
+        if self.transition > 0:
+            bar = (10 - self.transition) * 10
+            pyxel.rect(0, 0, 256, bar, 0)
+            pyxel.rect(0, 192 - bar, 256, bar, 0)
 
     def draw_title(self, sx, sy):
         self.hud.draw_title(10 + sx, 30 + sy, self.menu_selection)
@@ -1913,13 +1940,20 @@ class App:
                     if room.cleared:
                         pyxel.text(cx + 12, cy + 10, ".", 7)
                     elif room.monster and room.monster["hp"] > 0:
-                        pyxel.text(cx + 12, cy + 10, "M", 8)
+                        if getattr(self, "sprites_ok", False):
+                            from ui.sprites import draw as draw_sprite
+                            draw_sprite(pyxel.blt, "enemy", cx + 7, cy + 7)
+                        else:
+                            pyxel.text(cx + 12, cy + 10, "M", 8)
                     elif room.feature:
                         pyxel.text(cx + 12, cy + 10, "!", 10)
                     elif room.treasure:
                         pyxel.text(cx + 12, cy + 10, "$", 10)
-                
+
                 if x == self.player.x and y == self.player.y:
+                    if getattr(self, "sprites_ok", False):
+                        from ui.sprites import draw as draw_sprite
+                        draw_sprite(pyxel.blt, "hero", cx + 7, cy + 7)
                     pyxel.rectb(cx + 2, cy + 2, cell - 4, cell - 4, 9)
                 for pid, buddy in self.partners.items():
                     if (buddy.get("seen") and buddy.get("floor") == self.current_floor
@@ -1959,9 +1993,14 @@ class App:
         pyxel.text(100 + sx, 40 + sy, f"HP: {ehp}", 7)
         self.hud.draw_enemy_statuses(enemy, 100 + sx, 50 + sy)
         
-        # Simple enemy representation
+        # Enemy figure (sprite with fallback, lunge + hit flash)
         ex, ey = 180 + sx, 70 + sy
-        if "Skull" in ename:
+        lunge = (6 - self.combat_anim) if self.combat_anim > 0 else 0
+        ex -= lunge
+        if getattr(self, "sprites_ok", False):
+            from ui.sprites import draw as draw_sprite
+            draw_sprite(pyxel.blt, "boss" if "Skull" in ename else "enemy", ex - 8, ey - 8)
+        elif "Skull" in ename:
             pyxel.circ(ex, ey, 20, 8)
             pyxel.circ(ex - 6, ey - 4, 3, 0)
             pyxel.circ(ex + 6, ey - 4, 3, 0)
@@ -1970,16 +2009,22 @@ class App:
             pyxel.circ(ex, ey, 16, 8)
             pyxel.circ(ex - 4, ey - 3, 2, 0)
             pyxel.circ(ex + 4, ey - 3, 2, 0)
-        
+        if self.hit_flash > 0:
+            pyxel.circ(ex, ey, 20, 7)
+
         # Player area
         pyxel.text(30 + sx, 130 + sy, "YOU", 10)
         pyxel.text(30 + sx, 140 + sy, f"HP: {self.player.hp}/{self.player.max_hp}  MP: {self.player.mp}/{self.player.max_mp}", 7)
-        
-        # Player representation
+
+        # Player figure
         px, py = 60 + sx, 160 + sy
-        pyxel.circ(px, py, 12, 11)
-        pyxel.circ(px - 3, py - 2, 1, 0)
-        pyxel.circ(px + 3, py - 2, 1, 0)
+        if getattr(self, "sprites_ok", False):
+            from ui.sprites import draw as draw_sprite
+            draw_sprite(pyxel.blt, "hero", px - 8, py - 8)
+        else:
+            pyxel.circ(px, py, 12, 11)
+            pyxel.circ(px - 3, py - 2, 1, 0)
+            pyxel.circ(px + 3, py - 2, 1, 0)
         
         # Combat log
         for i, msg in enumerate(self.combat_log[-6:]):

@@ -37,6 +37,25 @@ class ParticleSystem:
         if len(self.particles) > 400:  # cap: drop oldest first
             del self.particles[:len(self.particles) - 400]
 
+    def add_burst(self, x, y, colors, count=10, speed=2, size=1):
+        for _ in range(count):
+            angle = random.random() * 6.28
+            spd = random.uniform(0.5, speed)
+            self.particles.append(Particle(
+                x, y,
+                spd * math.cos(angle),
+                spd * math.sin(angle),
+                random.choice(colors),
+                random.randint(15, 30),
+                random.randint(1, size + 1),
+            ))
+
+    def add_fire_effect(self, x, y):
+        self.add_burst(x, y, [9, 10, 8], count=10, speed=2)
+
+    def add_poison_effect(self, x, y):
+        self.add_burst(x, y, [2, 11, 3], count=8, speed=1.5)
+
     def draw(self):
         for p in self.particles:
             p.draw()

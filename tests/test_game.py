@@ -29,6 +29,8 @@ for _fn in ["init", "run", "mouse", "cls", "rect", "rectb", "circ",
 pyxel.play = MagicMock()
 pyxel.playm = MagicMock()
 pyxel.stop = MagicMock()
+pyxel.blt = MagicMock()
+pyxel.images = MagicMock()
 pyxel.sounds = MagicMock()
 pyxel.musics = MagicMock()
 pyxel.quit = MagicMock()
@@ -101,6 +103,10 @@ def fresh_app():
     import time as _time
     app.run_start = _time.time()
     app.run_recorded = True
+    app.sprites_ok = False
+    app.combat_anim = 0
+    app.hit_flash = 0
+    app.transition = 0
     app.shop_selection = 0
     app.shop_type = "merchant"
     app.sell_selection = 0
@@ -1072,6 +1078,57 @@ class TestStates(unittest.TestCase):
             self.assertIsNotNone(newest)
         finally:
             os.chdir(cwd)
+
+
+class TestVisuals(unittest.TestCase):
+    def test_sprite_maps_valid(self):
+        from ui.sprites import SPRITES, SLOTS, SIZE
+        self.assertEqual(set(SPRITES), set(SLOTS))
+        for name, rows in SPRITES.items():
+            self.assertEqual(len(rows), SIZE, name)
+            for row in rows:
+                self.assertEqual(len(row), SIZE, name)
+                for ch in row:
+                    self.assertIn(ch, ".0123456789abcdef", (name, ch))
+
+    def test_sprite_load(self):
+        from ui.sprites import load_into_bank, draw, SLOTS
+        painted = []
+
+        class FakeBank:
+            def pset(self, x, y, c):
+                painted.append((x, y, c))
+
+        self.assertTrue(load_into_bank([FakeBank()]))
+        self.assertGreater(len(painted), 100)
+        calls = []
+
+        def fake_blt(x, y, img, u, v, w, h, col):
+            calls.append((x, y, img, u, v, w, h, col))
+
+        draw(fake_blt, "hero", 10, 20)
+        ox, oy = SLOTS["hero"]
+        self.assertEqual(calls, [(10, 20, 0, ox, oy, 16, 16, 0)])
+
+    def test_combat_anim_and_bursts(self):
+        from main import GameState
+        app = fresh_app()
+        app.state = GameState.COMBAT
+        app.player.x, app.player.y = 1, 1
+        app.grid[1][1].monster = {"name": "T", "hp": 50, "max_hp": 50,
+                                  "atk": 0, "xp": 5}
+        app.player.base_m_ack = 5
+        app.player_attack(app.grid[1][1].monster, "melee")
+        self.assertEqual(app.combat_anim, 6)
+        self.assertEqual(app.hit_flash, 4)
+        n = len(app.particles.particles)
+        app.particles.add_fire_effect(10, 10)
+        app.particles.add_poison_effect(10, 10)
+        self.assertGreater(len(app.particles.particles), n)
+        app.transition = 10
+        app.draw()  # runs with stub incl. blt
+        app.sprites_ok = True
+        app.draw()
 
 
 class TestNet(unittest.TestCase):
