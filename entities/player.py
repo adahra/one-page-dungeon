@@ -135,6 +135,15 @@ class Player:
             msg = f"Gained {val} XP"
             if leveled:
                 msg += " - LEVEL UP!"
+        elif effect == "teach_skill":
+            from systems.skills import SKILLS
+            skill_id = item.get("skill")
+            if skill_id not in SKILLS:
+                return False, "Nothing happens"
+            if skill_id in self.skills_unlocked:
+                return True, f"Already know {SKILLS[skill_id]['name']}"
+            self.skills_unlocked.append(skill_id)
+            msg = f"Learned {SKILLS[skill_id]['name']}! (key {SKILLS[skill_id]['key']})"
         
         self.remove_item(item_id)
         return True, msg

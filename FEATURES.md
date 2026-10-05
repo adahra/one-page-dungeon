@@ -6,7 +6,7 @@
 - **Character Classes** ✓ partial (Warrior/Mage/Rogue + starting equipment + per-class HP/MP growth; TODO: unlockable classes)
 - **Meta-Progression** ✓ partial (Soul Fragments, 4 upgrades, title-screen shop; TODO: item-find upgrade)
 - **Status Effects** ✓ partial (poison/bleed/stun/curse/bless via traps + boss attacks, HUD indicators; TODO: apply via player skills)
-- **Skill System** ✓ partial (MP + cooldowns, unlock Lv 2-5; TODO: unlock via items, true AoE Fireball)
+- **Skill System** ✓ partial (MP + cooldowns, unlock Lv 2-5 or via tomes; TODO: true AoE Fireball)
 - **Unit tests** ✓ partial (46 headless tests; TODO: property-based RNG tests, full-run integration test)
 
 ## High Priority

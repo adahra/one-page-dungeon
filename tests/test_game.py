@@ -173,6 +173,15 @@ class TestPlayer(unittest.TestCase):
             before = getattr(p, base)
             p.use_item(eff)
             self.assertEqual(getattr(p, base), before + 1)
+        p.add_item("tome_fire")
+        ok, msg = p.use_item("tome_fire")
+        self.assertTrue(ok and "Fireball" in msg)
+        self.assertIn("fireball", p.skills_unlocked)
+        self.assertNotIn("tome_fire", p.inventory)  # consumed
+        p.add_item("tome_fire")
+        ok, msg = p.use_item("tome_fire")
+        self.assertTrue(ok and "Already know" in msg)
+        self.assertIn("tome_fire", p.inventory)  # not consumed twice
 
     def test_equip(self):
         from entities.player import Player
