@@ -7,7 +7,7 @@ from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA,
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
-from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, fortune_mult, UPGRADES
+from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, fortune_mult, award, UPGRADES
 from systems.daily import daily_info, MODIFIERS
 from entities.player import Player
 from entities.room import Room
@@ -145,6 +145,8 @@ class App:
         self.current_floor += 1
         self.restock_shops()
         self.hud.add_log("Shops restocked!")
+        if self.current_floor >= FINAL_FLOOR and award(self.meta, "delver"):
+            self.hud.add_log("Achievement: Deep Delver!")
         self.player.x, self.player.y = 3, 3
         self.boss = Boss(self.difficulty)
         scale = 1 + BOSS_FLOOR_HP_SCALE * (self.current_floor - 1)
@@ -792,6 +794,11 @@ class App:
                 self.save_load.save_highscore("Hero", score, self.score_label(), self.current_floor, True)
                 self.meta["soul_fragments"] += 3
                 self.meta["victories"] = self.meta.get("victories", 0) + 1
+                for ach, msg in [("first_win", "Achievement: First Win!"),
+                                 ("iron_win" if self.difficulty == "ironman" else None, "Achievement: Iron Victory!"),
+                                 ("daily_win" if self.daily else None, "Achievement: Daily Champion!")]:
+                    if ach and award(self.meta, ach):
+                        self.hud.add_log(msg)
                 save_meta(self.meta)
                 self.hud.add_log("THE KING'S SKULL DEFEATED! +3 Soul Fragments")
                 self.sound.play(14)

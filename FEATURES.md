@@ -41,13 +41,13 @@
 
 ### Shop Enhancements ✓
 - **Restock** ✓ - limited stock per item, refreshed each floor
-- **Specialization** - weapon smith, alchemist, enchanter NPCs
-- **Quests** - "Bring me 3 rat tails" for discount/unique item
-- **Investment** - spend gold to upgrade shop permanently
+- **Specialization** ✓ - Merchant (basics), Black Market (gear), Mystic Enchanter (magic/tomes/eggs)
+- **Quests** ✓ - 3 Rat Tails (Ratdog drops) → permanent 20% discount
+- **Investment** ✓ - 100G×level (max 5) raises buyback +5%/level per shop
 
 ### Crafting / Enchanting ✓ partial
 - Combine items ✓ (2 Health/Mana → Greater via `C`)
-- Enchant equipment at anvil rooms: add fire/ice/poison damage
+- Enchant equipment ✓ (potion fuel, `E`, +1/slot max +3)
 - Rune socket system
 
 ### Pet / Companion System ✓
@@ -57,11 +57,11 @@
 ### Daily / Weekly Challenges ✓ partial
 - Fixed seed ✓, same layout for all players ✓
 - Modifiers ✓ ("No healing", "Double damage", "No shops")
-- Leaderboards with score breakdown (scores tagged `daily:<modifier>`)
+- Leaderboards with score breakdown ✓ (all/ironman/daily filter via `F`)
 
 ### Hardcore / Ironman Mode ✓ partial
 - No saves ✓, nightmare stats, 3x score, ironman-only score filter
-- Achievement unlocks
+- Achievement unlocks ✓ (First Win, Iron Victory, Daily Champion, Deep Delver)
 
 ## Polish & QoL
 

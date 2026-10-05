@@ -18,6 +18,24 @@ UPGRADES = {
                 "desc": "+10% gold from loot / level"},
 }
 
+ACHIEVEMENTS = {
+    "first_win": "Win a run",
+    "iron_win": "Win on ironman",
+    "daily_win": "Win a daily challenge",
+    "delver": "Reach floor 5",
+}
+
+
+def award(meta, achievement_id):
+    if achievement_id not in ACHIEVEMENTS:
+        return False
+    done = meta.setdefault("achievements", [])
+    if achievement_id in done:
+        return False
+    done.append(achievement_id)
+    save_meta(meta)
+    return True
+
 
 def upgrade_cost(upgrade_id, level):
     spec = UPGRADES[upgrade_id]

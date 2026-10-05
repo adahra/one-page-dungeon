@@ -388,6 +388,10 @@ class TestStatusSkillsMeta(unittest.TestCase):
             self.assertEqual(M.upgrade_cost("swiftness", 0), 2)
             self.assertEqual(M.fortune_mult({"upgrades": {"fortune": 3}}),
                              1.3)
+            self.assertTrue(M.award(meta, "first_win"))
+            self.assertFalse(M.award(meta, "first_win"))
+            self.assertFalse(M.award(meta, "bogus"))
+            self.assertIn("first_win", meta["achievements"])
         finally:
             M.META_FILE = old
 

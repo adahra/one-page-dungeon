@@ -215,7 +215,7 @@ class HUD:
             pyxel.text(x + 10, y + 15 + i * 22 + 14, spec["desc"][:34], 6)
 
     def draw_upgrades(self, meta, selected, x, y):
-        from systems.meta import UPGRADES, upgrade_cost
+        from systems.meta import UPGRADES, ACHIEVEMENTS, upgrade_cost
         pyxel.text(x, y, "SOUL UPGRADES", 10)
         pyxel.text(x, y + 12, f"Soul Fragments: {meta.get('soul_fragments', 0)}", 11)
         for i, (uid, spec) in enumerate(UPGRADES.items()):
@@ -227,6 +227,10 @@ class HUD:
                 status = f"Lv{level}->{level + 1} ({upgrade_cost(uid, level)} frag)"
             pyxel.text(x, y + 28 + i * 20, f"{'> ' if i == selected else '  '}{spec['name']}: {status}", color)
             pyxel.text(x + 10, y + 28 + i * 20 + 9, spec["desc"][:36], 5)
+        done = meta.get("achievements", [])
+        ach_txt = " ".join(f"[{ACHIEVEMENTS[a][:12]}]" if a in done else "[????]"
+                           for a in ACHIEVEMENTS)[:52]
+        pyxel.text(x, y + 28 + len(UPGRADES) * 20, ach_txt, 11)
 
     def draw_difficulty_select(self, x, y, selected):
         from data.game_data import DIFFICULTY
