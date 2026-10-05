@@ -6,6 +6,8 @@ __pycache__/
 *.so
 dungeon_save_*.json
 dungeon_save.json
+dungeon_auto.json
+dungeon_runs.json
 dungeon_highscores.json
 dungeon_meta.json
 *.pyxel
