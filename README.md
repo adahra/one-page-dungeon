@@ -24,7 +24,7 @@ A complete retro dungeon crawler built with [Pyxel](https://github.com/kitao/pyx
 
 ```bash
 pip install -r requirements.txt  # pyxel>=2.9.5
-python main.py                   # 256x192 window, requires a display
+python3 main.py                   # 256x192 window, requires a display
 ```
 
 ## Controls
@@ -35,24 +35,38 @@ python main.py                   # 256x192 window, requires a display
 | `1` | Melee (M-ACK + 1d6 − 3) |
 | `2` | Ranged (R-ACK + 1d6 − 3) |
 | `3` | Magic (MGK + 2, costs 1 MP) |
-| `R` | Flee regular combat (50%, boss cannot be fled) |
-| `4`–`7` | Skills: Power Strike / Heal / Fireball / Smoke Bomb (unlock at Lv 2/3/4/5, cost MP + cooldown) |
+| `4`–`7` | Skills: Power Strike / Heal / Fireball / Smoke Bomb (unlock Lv 2/3/4/5, MP + cooldown) |
+| `R` | Flee regular combat (50%; boss & smoke-bomb-proof) |
 | `I` | Inventory (Enter: use/equip, `I`/`ESC`: back) |
 | `M` | Full map (`M`/`ESC`: back) |
 | `S` | Save/Load screen (Enter: save, `L`: load, 3 slots) |
 | `1`–`5` | Level-up: allocate stat point (M-ACK / R-ACK / DEF / MGK / Evasion) |
-| Shop: Enter / `S` / ←`→` / `B`,`ESC` | Buy selected / sell chosen item / pick item to sell / leave |
+| Shop: Enter / ←`→`+`S` / `B`,`ESC` | Buy selected / pick item + `S` to sell / leave |
+| Upgrades: `↑↓` + Enter | Buy soul upgrade / back with `ESC` |
 | `R` / `ESC` | Restart / back to title (Game Over / Victory) |
 | `ESC` | Pause menu / back |
 
 ## Gameplay
 
-**Objective:** descend 5 floors from `(3,3)`, survive traps and monsters, loot treasure, level up, and defeat **The King's Skull** in the boss room at `(0,0)` — the final kill on floor 5 wins.
+**Objective:** pick a class, descend 5 floors from `(3,3)`, and defeat **The King's Skull** in the boss room at `(0,0)` — only the floor-5 final-phase kill wins.
+
+### Classes (chosen after New Game)
+| Class | HP | MP | ATK | R | DEF | MGK | EVA | Starts with |
+|-------|----|----|-----|---|-----|-----|-----|-------------|
+| Warrior | 6 | 2 | 3 | 1 | 2 | 0 | 0 | Iron Sword, Leather Armor |
+| Mage | 3 | 7 | 1 | 1 | 0 | 3 | 0 | Magic Wand |
+| Rogue | 4 | 4 | 2 | 3 | 1 | 1 | 2 | Leather Armor, Cloak of Shadows |
 
 ### Floors
 - Find **Descending Stairs** (or beat each floor's boss) to go deeper
 - Monsters scale per floor; treasure gold grows; boss HP +25%/floor
-- Beating a floor 1–4 boss makes the Skull retreat deeper instead of victory
+- Floor 1–4 boss kills make the Skull retreat deeper instead of victory
+
+### Status effects
+Traps and boss moves inflict poison/bleed (1 HP/turn), stun (miss action), curse (−1 DEF); Fountain of Light cleanses and grants bless (+1 DEF). Shown in stats and combat HUD.
+
+### Meta-progression
+Floor bosses drop Soul Fragments (+1 retreat, +3 victory). Spend them on the title-screen Upgrades: Vitality (+2 Max HP), Focus (+1 Max MP), Greed (+15 starting gold), Swiftness (+EVA). Persists in `dungeon_meta.json`.
 
 ### Difficulty
 
@@ -64,14 +78,13 @@ python main.py                   # 256x192 window, requires a display
 | Nightmare | 200% | 200% | 50% | 50% / 200% |
 
 ### Progression
-- 10 levels; XP from monsters, treasures, scrolls
+- 10 levels; XP from monsters, treasures, scrolls (incl. usable XP Scrolls)
 - 1 stat point per level-up → M-ACK, R-ACK, DEF, MGK, or Evasion
-- Equipment slots: weapon / armor / accessory
-- Permanent stat boosts from shrines, armories, and potions
+- Skills unlock at Lv 2/3/4/5; equipment: weapon / armor / accessory
 
 ### Room contents (rolled on first entry)
-- 9 monsters (Jesters, Ratdogs, Golems, Champions, …; scale with difficulty/floor)
-- 11 features (traps, fountains, shrines, herb patches, runes, Merchant / Black Market shops)
+- 9 monsters (Jesters → Champions; scale with difficulty/floor)
+- 12 features (traps, fountains, shrines, Merchant / Black Market shops, stairs)
 - 11 treasures (gold, elixirs, stat potions, XP scrolls)
 
 ### Boss: The King's Skull (3 phases)
@@ -82,16 +95,23 @@ python main.py                   # 256x192 window, requires a display
 ## Project Structure
 
 ```
-├── main.py              # Entry point; App state machine (14 states), combat, saves
-├── data/game_data.py    # All content tables (monsters, features, treasures, items, shops, boss, difficulty, XP)
-├── entities/            # player.py, room.py (lazy generate_content), boss.py
-├── systems/             # sound.py (IDs 0-14), save_load.py (highscores), particles.py
+├── main.py              # Entry point; App state machine (16 states), combat, saves
+├── data/game_data.py    # All content tables (monsters, features, treasures, items, shops, boss, difficulty, XP, classes)
+├── entities/            # player.py (class/stats/status/skills), room.py (lazy gen), boss.py
+├── systems/             # sound.py, save_load.py, particles.py, status.py, skills.py, meta.py
 ├── ui/hud.py            # All rendering
+├── tests/test_game.py   # 46 headless unittests (pyxel stubbed)
 ├── dungeon_game.py      # Legacy prototype, ignored
-├── FEATURES.md          # Design notes
+├── FEATURES.md          # Roadmap
 ```
 
-Saves: `dungeon_save_0/1/2.json`; highscores: `dungeon_highscores.json`.
+Saves: `dungeon_save_0/1/2.json`; highscores: `dungeon_highscores.json`; meta: `dungeon_meta.json` (all gitignored).
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests   # 46 tests, no display needed
+```
 
 ## Resources
 
