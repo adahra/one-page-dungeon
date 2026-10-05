@@ -2,6 +2,12 @@
 
 ## Implemented ✓
 - **Shop/Merchant Rooms** - Two shop types: Wandering Merchant (fair prices, basic items) and Black Market (rare items, 1.5x prices, 30% buyback)
+- **Multiple Floors / Dungeon Depth** ✓ (5 floors, Descending Stairs, floor boss retreats, boss HP +25%/floor, loot scales)
+- **Character Classes** ✓ partial (Warrior/Mage/Rogue + starting equipment + per-class HP/MP growth; TODO: unlockable classes)
+- **Meta-Progression** ✓ partial (Soul Fragments, 4 upgrades, title-screen shop; TODO: item-find upgrade)
+- **Status Effects** ✓ partial (poison/bleed/stun/curse/bless via traps + boss attacks, HUD indicators; TODO: apply via player skills)
+- **Skill System** ✓ partial (MP + cooldowns, unlock Lv 2-5; TODO: unlock via items, true AoE Fireball)
+- **Unit tests** ✓ partial (46 headless tests; TODO: property-based RNG tests, full-run integration test)
 
 ## High Priority
 

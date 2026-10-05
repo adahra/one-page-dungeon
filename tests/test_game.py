@@ -117,11 +117,17 @@ class TestPlayer(unittest.TestCase):
         self.assertTrue(p.add_xp(50))
         self.assertEqual(p.level, 2)
         self.assertEqual(p.stat_points, 1)
-        self.assertEqual(p.max_hp, 8)  # warrior 6 + 2
+        self.assertEqual(p.max_hp, 9)  # warrior 6 + growth 3
         self.assertEqual(p.hp, p.max_hp)
         self.assertEqual(p.get_xp_to_next(), 50 - p.xp)
         p.level = 10
         self.assertEqual(p.get_xp_to_next(), 0)
+        for cls, hp, mp in [("warrior", 9, 2), ("mage", 4, 9),
+                            ("rogue", 6, 5)]:
+            q = Player(cls)
+            q.add_xp(50)
+            self.assertEqual((q.max_hp, q.max_mp), (hp, mp),
+                             f"growth {cls}")
 
     def test_heal_damage_gold(self):
         from entities.player import Player

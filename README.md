@@ -79,6 +79,7 @@ Floor bosses drop Soul Fragments (+1 retreat, +3 victory). Spend them on the tit
 
 ### Progression
 - 10 levels; XP from monsters, treasures, scrolls (incl. usable XP Scrolls)
+- HP/MP growth per level depends on class (Warrior +3 HP, Mage +1 HP/+2 MP, Rogue +2 HP/+1 MP)
 - 1 stat point per level-up → M-ACK, R-ACK, DEF, MGK, or Evasion
 - Skills unlock at Lv 2/3/4/5; equipment: weapon / armor / accessory
 

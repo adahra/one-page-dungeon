@@ -115,3 +115,9 @@ CLASSES = {
               "equipment": {"weapon": None, "armor": "leather_armor", "accessory": "cloak"},
               "desc": "High EVA/R-ACK, dodgy"},
 }
+
+CLASS_GROWTH = {
+    "warrior": {"hp": 3, "mp": 0},
+    "mage": {"hp": 1, "mp": 2},
+    "rogue": {"hp": 2, "mp": 1},
+}

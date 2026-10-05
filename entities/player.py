@@ -1,4 +1,4 @@
-from data.game_data import XP_TABLE, MAX_LEVEL, ITEMS, CLASSES
+from data.game_data import XP_TABLE, MAX_LEVEL, ITEMS, CLASSES, CLASS_GROWTH
 
 class Player:
     def __init__(self, char_class="warrior"):
@@ -65,9 +65,10 @@ class Player:
 
     def level_up(self):
         self.level += 1
-        self.max_hp += 2
+        growth = CLASS_GROWTH.get(self.char_class, {"hp": 2, "mp": 1})
+        self.max_hp += growth["hp"]
         self.hp = self.max_hp
-        self.max_mp += 1
+        self.max_mp += growth["mp"]
         self.mp = self.max_mp
         self.stat_points += 1
 
