@@ -22,6 +22,11 @@ class HUD:
         pyxel.text(x, y + 82, f"EVA:   {player.evasion}", 7)
         pyxel.text(x, y + 92, f"GOLD:  {player.gold}", 10)
         pyxel.text(x, y + 102, f"SP:    {player.stat_points}", 14)
+        if getattr(player, "statuses", None):
+            from systems.status import EFFECTS
+            parts = [f"{EFFECTS[e]['name']}:{t}" for e, t in player.statuses.items() if e in EFFECTS]
+            if parts:
+                pyxel.text(x, y + 112, " ".join(parts)[:28], 2)
 
     def draw_boss_hp(self, boss, x, y):
         bar_w = 100
@@ -50,6 +55,12 @@ class HUD:
         pyxel.text(x, y + 10, "[1] Melee  [2] Ranged  [3] Magic", 7)
         pyxel.text(x, y + 20, f"        (MP: {mp})", 12)
         pyxel.text(x, y + 30, "[I] Inventory  [R] Flee", 6)
+
+    def draw_statuses(self, player, x, y):
+        from systems.status import EFFECTS
+        for i, (effect, turns) in enumerate(player.statuses.items()):
+            if effect in EFFECTS:
+                pyxel.text(x, y + i * 8, f"{EFFECTS[effect]['name']} ({turns})", EFFECTS[effect]["color"])
 
     def draw_explore_hud(self, x, y):
         pyxel.text(x, y, "EXPLORE:", 11)

@@ -218,6 +218,15 @@ class App:
                 dmg = max(1, feat["val"] - self.player.defense)
                 self.player.hp -= dmg
                 self.hud.add_log(f"TRAP: {feat['name']}! HP -{dmg}")
+                trap_status = {"Ooze Pit Trap": ("poison", 3),
+                               "Bone Spears Trap": ("bleed", 2),
+                               "Explosive Runes": ("stun", 1),
+                               "Skeleton Pit Trap": ("bleed", 2)}.get(feat["name"])
+                if trap_status:
+                    effect, turns = trap_status
+                    self.player.add_status(effect, turns)
+                    from systems.status import EFFECTS
+                    self.hud.add_log(f"{EFFECTS[effect]['name']}! {EFFECTS[effect]['desc']}")
                 self.particles.add_damage_numbers(
                     50 + self.player.x * 30, 50 + self.player.y * 30, dmg, 8)
                 self.screen_shake = 8
@@ -226,6 +235,10 @@ class App:
                 hp_healed = self.player.heal_hp(feat["val"])
                 mp_healed = self.player.heal_mp(feat["val"])
                 self.hud.add_log(f"{feat['name']}! HP+{hp_healed} MP+{mp_healed}")
+                if self.player.statuses:
+                    self.player.statuses.clear()
+                    self.player.add_status("bless", 3)
+                    self.hud.add_log("Cleansed! Blessed (+1 DEF).")
                 self.particles.add_heal_effect(50 + self.player.x * 30, 50 + self.player.y * 30)
                 self.sound.play(5)
             elif feat["effect"] == "heal_hp":
@@ -336,6 +349,12 @@ class App:
                 self.sound.play(4)
 
     def player_attack(self, enemy, attack_type):
+        if self.player.consume_stun():
+            self.hud.add_log("Stunned! You miss your action.")
+            self.combat_log.append("Stunned! No action.")
+            self.sound.play(4)
+            self.enemy_turn(enemy)
+            return
         if attack_type == "melee":
             base_dmg = self.player.m_ack
             roll = random.randint(1, 6)
@@ -441,6 +460,17 @@ class App:
                 self.boss.hp = min(self.boss.max_hp, self.boss.hp + heal)
             else:
                 dmg, msg = result
+
+            boss_status = {"hollow_scream": ("curse", 3),
+                           "third_eye_ray": ("curse", 2),
+                           "skull_swarm": ("bleed", 2),
+                           "dark_nova": ("stun", 1),
+                           "soul_crush": ("curse", 2)}.get(attack)
+            if boss_status:
+                effect, turns = boss_status
+                self.player.add_status(effect, turns)
+                from systems.status import EFFECTS
+                msg += f" [{EFFECTS[effect]['name']}]"
             
             self.player.hp -= dmg
             self.particles.add_damage_numbers(30, 30, dmg, 8)
@@ -469,6 +499,15 @@ class App:
             self.combat_log.append(f"{ename} deals {dmg} damage")
             self.screen_shake = 6
             self.sound.play(3)
+
+        dot_dmg, expired = self.player.tick_statuses()
+        if dot_dmg:
+            self.hud.add_log(f"Poison/bleed! HP -{dot_dmg}")
+            self.combat_log.append(f"Status damage: {dot_dmg}")
+            self.particles.add_damage_numbers(30, 44, dot_dmg, 2)
+        for effect in expired:
+            from systems.status import EFFECTS
+            self.hud.add_log(f"{EFFECTS[effect]['name']} wore off.")
 
         if self.player.hp <= 0:
             self.player.hp = 0
@@ -559,6 +598,7 @@ class App:
                     "defense": self.player.base_defense, "magic": self.player.base_magic,
                     "gold": self.player.gold, "xp": self.player.xp, "level": self.player.level,
                     "inventory": self.player.inventory, "equipped": self.player.equipped,
+                    "statuses": self.player.statuses,
                 },
                 "dungeon": {
                     "grid": [[{
@@ -608,6 +648,7 @@ class App:
         self.player.gold, self.player.xp, self.player.level = p["gold"], p["xp"], p["level"]
         self.player.inventory = p.get("inventory", {})
         self.player.equipped = p.get("equipped", {"weapon": None, "armor": None, "accessory": None})
+        self.player.statuses = p.get("statuses", {})
         
         self.current_floor = data["dungeon"]["current_floor"]
         self.seed = data["dungeon"]["seed"]
@@ -891,6 +932,7 @@ class App:
         
         # Options
         self.hud.draw_combat_options(10 + sx, 150 + sy, self.player.mp)
+        self.hud.draw_statuses(self.player, 200 + sx, 130 + sy)
         
         if self.state == GameState.BOSS_COMBAT:
             self.hud.draw_boss_hp(self.boss, 10 + sx, 10 + sy)

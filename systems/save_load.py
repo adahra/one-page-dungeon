@@ -33,6 +33,7 @@ class SaveLoadSystem:
                 "level": player.level,
                 "inventory": player.inventory,
                 "equipped": player.equipped,
+                "statuses": getattr(player, "statuses", {}),
             },
             "dungeon": {
                 "grid": [[{

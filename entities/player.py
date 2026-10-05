@@ -19,6 +19,7 @@ class Player:
         self.equipped = {"weapon": None, "armor": None, "accessory": None}
         self.evasion = 0
         self.stat_points = 0
+        self.statuses = {}
 
     @property
     def m_ack(self):
@@ -33,10 +34,11 @@ class Player:
 
     @property
     def defense(self):
+        from systems.status import defense_modifier
         bonus = 0
         if self.equipped["armor"] and self.equipped["armor"] in ITEMS:
             bonus += ITEMS[self.equipped["armor"]].get("def_bonus", 0)
-        return self.base_defense + bonus
+        return self.base_defense + bonus + defense_modifier(self.statuses)
 
     @property
     def magic(self):
@@ -150,6 +152,40 @@ class Player:
 
     def is_alive(self):
         return self.hp > 0
+
+    def add_status(self, effect, turns=3):
+        from systems.status import EFFECTS
+        if effect not in EFFECTS:
+            return False
+        self.statuses[effect] = max(self.statuses.get(effect, 0), turns)
+        return True
+
+    def has_status(self, effect):
+        return self.statuses.get(effect, 0) > 0
+
+    def consume_stun(self):
+        if self.has_status("stun"):
+            self.statuses["stun"] -= 1
+            if self.statuses["stun"] <= 0:
+                del self.statuses["stun"]
+            return True
+        return False
+
+    def tick_statuses(self):
+        """Apply DoT, decay durations. Returns (damage, expired_list)."""
+        from systems.status import DOT_EFFECTS
+        damage = 0
+        expired = []
+        for effect in list(self.statuses):
+            if effect in DOT_EFFECTS:
+                damage += 1
+            self.statuses[effect] -= 1
+            if self.statuses[effect] <= 0:
+                del self.statuses[effect]
+                expired.append(effect)
+        if damage:
+            self.hp = max(0, self.hp - damage)
+        return damage, expired
 
     def get_xp_to_next(self):
         if self.level >= MAX_LEVEL:
