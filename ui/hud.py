@@ -58,8 +58,9 @@ class HUD:
 
     def draw_log(self, x, y):
         pyxel.text(x, y, "LOG:", 6)
-        for i, msg in enumerate(self.log_history[-6:]):
-            color = 5 if i == len(self.log_history) - 1 else 6
+        visible = self.log_history[-6:]
+        for i, msg in enumerate(visible):
+            color = 5 if i == len(visible) - 1 else 6
             pyxel.text(x, y + 12 + i * 8, msg[:48], color)
 
     def draw_minimap(self, grid, player_x, player_y, x, y):
@@ -173,7 +174,7 @@ class HUD:
             pyxel.text(x, y + 15 + i * 14, f"{'> ' if i == selected else '  '}{d.capitalize()}", color)
             pyxel.text(x + 10, y + 15 + i * 14 + 8, f"    {desc}", 5)
 
-    def draw_shop(self, player, shop_type, selected_idx, shop_data, x, y):
+    def draw_shop(self, player, shop_type, selected_idx, shop_data, x, y, sell_idx=0):
         from data.game_data import ITEMS
         pyxel.text(x, y, f"=== {shop_data['name'].upper()} ===", 10)
         pyxel.text(x, y + 12, f"Gold: {player.gold}", 10)
@@ -199,4 +200,9 @@ class HUD:
         
         # Show sell hint
         if player.inventory:
-            pyxel.text(x, y + 172, "Press [S] on an item to sell (buyback: {:.0%})".format(shop_data["buyback_mult"]), 5)
+            inv = list(player.inventory.items())
+            sell_idx = max(0, min(sell_idx, len(inv) - 1))
+            sell_id, sell_qty = inv[sell_idx]
+            sell_item = ITEMS.get(sell_id, {"name": sell_id, "price": 0})
+            sell_price = int(sell_item.get("price", 0) * shop_data["buyback_mult"])
+            pyxel.text(x, y + 172, f"Sell [<]/[>]: {sell_item['name']} x{sell_qty} -> {sell_price}G ({shop_data['buyback_mult']:.0%})", 5)

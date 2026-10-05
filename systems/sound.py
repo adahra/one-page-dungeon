@@ -37,15 +37,3 @@ class SoundSystem:
         self.enabled = not self.enabled
         if not self.enabled:
             pyxel.stop()
-
-    def play_music(self, track_id, loop=True):
-        if self.enabled:
-            pyxel.playm(track_id, loop=loop)
-
-    def stop_music(self):
-        pyxel.stop()
-
-    def toggle(self):
-        self.enabled = not self.enabled
-        if not self.enabled:
-            pyxel.stop()

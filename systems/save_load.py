@@ -10,66 +10,66 @@ class SaveLoadSystem:
         self.save_file = SAVE_FILE
         self.highscore_file = HIGHSCORE_FILE
 
-    def save_game(self, game_state):
+    def save_game(self, game_state, slot=0):
+        """Serialize the live App instance (see App.update_save_load for format)."""
+        player = game_state.player
+        boss = game_state.boss
         data = {
             "version": 1,
             "timestamp": datetime.now().isoformat(),
             "player": {
-                "x": game_state.player_x,
-                "y": game_state.player_y,
-                "hp": game_state.hp,
-                "max_hp": game_state.max_hp,
-                "mp": game_state.mp,
-                "max_mp": game_state.max_mp,
-                "m_ack": game_state.m_ack,
-                "r_ack": game_state.r_ack,
-                "defense": game_state.defense,
-                "magic": game_state.magic,
-                "gold": game_state.gold,
-                "xp": game_state.xp,
-                "level": game_state.level,
-                "inventory": game_state.inventory,
-                "equipped": game_state.equipped,
+                "x": player.x,
+                "y": player.y,
+                "hp": player.hp,
+                "max_hp": player.max_hp,
+                "mp": player.mp,
+                "max_mp": player.max_mp,
+                "m_ack": player.base_m_ack,
+                "r_ack": player.base_r_ack,
+                "defense": player.base_defense,
+                "magic": player.base_magic,
+                "gold": player.gold,
+                "xp": player.xp,
+                "level": player.level,
+                "inventory": player.inventory,
+                "equipped": player.equipped,
             },
             "dungeon": {
-                "grid": [],
-                "current_floor": game_state.current_floor,
-                "seed": game_state.seed,
-                "difficulty": game_state.difficulty,
-            },
-            "boss": game_state.boss,
-            "state": game_state.state,
-            "log_history": game_state.log_history,
-        }
-
-        for row in game_state.grid:
-            row_data = []
-            for room in row:
-                room_data = {
+                "grid": [[{
                     "x": room.x,
                     "y": room.y,
                     "explored": room.explored,
                     "is_boss_room": room.is_boss_room,
+                    "cleared": room.cleared,
                     "monster": room.monster,
                     "feature": room.feature,
                     "treasure": room.treasure,
-                }
-                row_data.append(room_data)
-            data["dungeon"]["grid"].append(row_data)
+                } for room in row] for row in game_state.grid],
+                "current_floor": game_state.current_floor,
+                "seed": game_state.seed,
+                "difficulty": game_state.difficulty,
+            },
+            "boss": {"name": boss.name, "hp": boss.hp, "max_hp": boss.max_hp,
+                      "phase": boss.phase, "attacks": boss.attacks},
+            "state": game_state.state,
+            "log_history": game_state.hud.log_history,
+        }
 
+        filename = f"dungeon_save_{slot}.json"
         try:
-            with open(self.save_file, "w") as f:
+            with open(filename, "w") as f:
                 json.dump(data, f)
             return True
         except Exception as e:
             print(f"Save failed: {e}")
             return False
 
-    def load_game(self):
-        if not os.path.exists(self.save_file):
+    def load_game(self, slot=0):
+        filename = f"dungeon_save_{slot}.json"
+        if not os.path.exists(filename):
             return None
         try:
-            with open(self.save_file, "r") as f:
+            with open(filename, "r") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Load failed: {e}")

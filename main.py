@@ -941,7 +941,7 @@ class App:
     def draw_shop(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
-        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy)
+        self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy, self.sell_selection)
 
     def draw_game_over(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)
