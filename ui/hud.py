@@ -198,6 +198,7 @@ class HUD:
         pyxel.text(x + 30, y + 12, "LAIR OF THE SKULL", 8)
         options = ["New Game", "Continue", "High Scores", "Settings", "Upgrades", "Quit"]
         self.draw_menu(options, selected, x + 20, y + 40)
+        pyxel.text(x + 20, y + 40 + 6 * 12 + 6, "[D] Daily challenge", 6)
 
     def draw_class_select(self, selected, x, y, victories=0):
         from data.game_data import CLASSES

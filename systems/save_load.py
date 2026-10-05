@@ -58,6 +58,7 @@ class SaveLoadSystem:
                       "phase": boss.phase, "attacks": boss.attacks,
                       "statuses": getattr(boss, "statuses", {})},
             "shop_stock": getattr(game_state, "shop_stock", {}),
+            "daily": getattr(game_state, "daily", None),
             "state": game_state.state,
             "log_history": game_state.hud.log_history,
         }

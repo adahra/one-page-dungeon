@@ -16,7 +16,7 @@ pyxel = types.ModuleType("pyxel")
 KEYS = ["KEY_UP", "KEY_DOWN", "KEY_LEFT", "KEY_RIGHT", "KEY_RETURN",
         "KEY_SPACE", "KEY_ESCAPE", "KEY_I", "KEY_M", "KEY_S", "KEY_L",
         "KEY_R", "KEY_B", "KEY_1", "KEY_2", "KEY_3", "KEY_4", "KEY_5",
-        "KEY_6", "KEY_7", "KEY_C"]
+        "KEY_6", "KEY_7", "KEY_C", "KEY_D"]
 for i, k in enumerate(KEYS):
     setattr(pyxel, k, 100 + i)
 _pressed = set()
@@ -71,6 +71,8 @@ def fresh_app():
     app.menu_selection = 0
     app.class_selection = 0
     app.pending_class = "warrior"
+    app.pending_daily = None
+    app.daily = None
     app.inventory_selection = 0
     app.save_slot_selection = 0
     app.shop_selection = 0
@@ -895,6 +897,47 @@ class TestStates(unittest.TestCase):
         app.update_upgrades()
         self.assertEqual(app.state, GameState.TITLE)
         press()
+
+    def test_daily_modifiers(self):
+        import datetime
+        import systems.daily as D
+        info = D.daily_info(datetime.date(2026, 1, 5))
+        self.assertEqual(info["date"], "2026-01-05")
+        self.assertEqual(info, D.daily_info(datetime.date(2026, 1, 5)))
+        self.assertIn(info["modifier"], D.MODIFIERS)
+        # no_healing zeroes recovery
+        app = fresh_app()
+        app.reset_game("normal", "warrior",
+                       {"date": "t", "seed": 1, "modifier": "no_healing"})
+        app.player.hp = 1
+        self.assertEqual(app.player.heal_hp(5), 0)
+        # double damage
+        app2 = fresh_app()
+        app2.reset_game("normal", "warrior",
+                        {"date": "t", "seed": 1,
+                         "modifier": "double_damage"})
+        app2.state = __import__("main").GameState.COMBAT
+        app2.player.x, app2.player.y = 1, 1
+        app2.grid[1][1].monster = {"name": "T", "hp": 50, "max_hp": 50,
+                                   "atk": 2, "xp": 5}
+        app2.player.hp = 100
+        import random
+        random.seed(3)
+        app2.enemy_turn(app2.grid[1][1].monster)
+        self.assertLess(app2.player.hp, 100)
+        # daily label on scores
+        self.assertTrue(app2.score_label().startswith("daily:"))
+        # no_shops skips shop
+        app3 = fresh_app()
+        app3.reset_game("normal", "warrior",
+                        {"date": "t", "seed": 1, "modifier": "no_shops"})
+        from entities.room import Room
+        room = Room(1, 1)
+        room.explored = True
+        room.feature = {"name": "Wandering Merchant", "effect": "shop",
+                        "val": 0, "desc": ""}
+        app3.resolve_room_entry(room)
+        self.assertEqual(app3.state, __import__("main").GameState.EXPLORE)
 
     def test_descend_and_score(self):
         app = fresh_app()

@@ -8,6 +8,7 @@ from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
 from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, fortune_mult, UPGRADES
+from systems.daily import daily_info, MODIFIERS
 from entities.player import Player
 from entities.room import Room
 from entities.boss import Boss
@@ -50,12 +51,14 @@ class App:
         self.boss = Boss()
         self.current_floor = 1
         self.seed = random.randint(1, 999999)
+        self.daily = None
         self.difficulty = "normal"
         self.screen_shake = 0
         
         self.menu_selection = 0
         self.class_selection = 0
         self.pending_class = "warrior"
+        self.pending_daily = None
         self.inventory_selection = 0
         self.save_slot_selection = 0
         self.shop_selection = 0
@@ -77,17 +80,26 @@ class App:
                 self.grid[y][x] = Room(x, y)
         self.grid[0][0].is_boss_room = True
 
-    def reset_game(self, difficulty=None, char_class=None):
+    def reset_game(self, difficulty=None, char_class=None, daily=None):
         if difficulty:
             self.difficulty = difficulty
         if char_class:
             self.pending_class = char_class
+        self.daily = daily
         self.player = Player(self.pending_class)
+        if daily:
+            self.seed = daily["seed"]
+            random.seed(daily["seed"])
+            if daily["modifier"] == "no_healing":
+                self.player.heal_mult = 0.0
+        else:
+            self.seed = random.randint(1, 999999)
         for note in apply_upgrades(self.player, self.meta):
             self.hud.add_log(note)
         self.boss = Boss(self.difficulty)
         self.current_floor = 1
-        self.seed = random.randint(1, 999999)
+        if not daily:
+            self.seed = random.randint(1, 999999)
         self._generate_dungeon()
         self.grid[3][3].explored = True
         self.grid[0][0].is_boss_room = True
@@ -98,6 +110,8 @@ class App:
         self.level_up_return = GameState.EXPLORE
         self.hud.log_history.clear()
         self.hud.add_log("Welcome to the Lair of the Skull!")
+        if self.daily:
+            self.hud.add_log(f"DAILY {self.daily['date']}: {MODIFIERS[self.daily['modifier']]}")
         self.combat_log.clear()
         self.screen_shake = 0
 
@@ -172,6 +186,13 @@ class App:
         elif pyxel.btnp(pyxel.KEY_DOWN):
             self.menu_selection = (self.menu_selection + 1) % 6
             self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_D):
+            self.pending_daily = daily_info()
+            self.pending_class = "warrior"
+            self.class_selection = 0
+            self.state = GameState.CLASS_SELECT
+            self.sound.play(10)
+            self.hud.add_log(f"Daily {self.pending_daily['date']}: {MODIFIERS[self.pending_daily['modifier']]}")
         elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
             self.sound.play(10)
             if self.menu_selection == 0:
@@ -229,7 +250,8 @@ class App:
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
             self.sound.play(10)
-            self.reset_game(diffs[self.menu_selection])
+            self.reset_game(diffs[self.menu_selection], None, self.pending_daily)
+            self.pending_daily = None
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.state = GameState.TITLE
             self.menu_selection = 0
@@ -386,6 +408,10 @@ class App:
 
         # Shop
         if room.feature and room.feature["effect"] == "shop":
+            if self.daily and self.daily["modifier"] == "no_shops":
+                self.hud.add_log("Abandoned shop. Nothing here.")
+                room.cleared = True
+                return
             self.shop_type = "black_market" if room.feature["val"] == 1 else "merchant"
             self.shop_selection = 0
             self.sell_selection = 0
@@ -671,6 +697,9 @@ class App:
                 self.boss.hp = min(self.boss.max_hp, self.boss.hp + heal)
             else:
                 dmg, msg = result
+            if self.daily and self.daily["modifier"] == "double_damage":
+                dmg *= 2
+                msg += " (x2!)"
 
             boss_status = {"hollow_scream": ("curse", 3),
                            "third_eye_ray": ("curse", 2),
@@ -698,6 +727,8 @@ class App:
                 base_atk = enemy.get("atk", 1)
             roll = random.randint(1, 6)
             dmg = max(1, base_atk + roll // 2 - self.player.defense)
+            if self.daily and self.daily["modifier"] == "double_damage":
+                dmg *= 2
             self.player.hp -= dmg
             self.particles.add_damage_numbers(30, 30, dmg, 8)
             self.particles.add_blood_effect(30, 30)
@@ -733,7 +764,7 @@ class App:
             if self.current_floor >= FINAL_FLOOR:
                 self.state = GameState.VICTORY
                 score = self.calculate_score()
-                self.save_load.save_highscore("Hero", score, self.difficulty, self.current_floor, True)
+                self.save_load.save_highscore("Hero", score, self.score_label(), self.current_floor, True)
                 self.meta["soul_fragments"] += 3
                 self.meta["victories"] = self.meta.get("victories", 0) + 1
                 save_meta(self.meta)
@@ -754,6 +785,11 @@ class App:
             self.particles.add_explosion(180, 60, 8, 20, 4)
             self.screen_shake = 15
             self.sound.play(13)
+
+    def score_label(self):
+        if self.daily:
+            return f"daily:{self.daily['modifier']}"
+        return self.difficulty
 
     def calculate_score(self):
         base = self.player.gold + self.player.xp + self.player.level * 50
@@ -853,6 +889,7 @@ class App:
                 },
                 "boss": {"name": self.boss.name, "hp": self.boss.hp, "max_hp": self.boss.max_hp, "phase": self.boss.phase, "attacks": self.boss.attacks, "statuses": self.boss.statuses},
                 "shop_stock": self.shop_stock,
+                "daily": self.daily,
                 "state": self.state,
                 "log_history": self.hud.log_history,
             }
@@ -920,6 +957,9 @@ class App:
         self.boss.phase = b.get("phase", 0)
         self.boss.attacks = b.get("attacks", BOSS_DATA["phases"][0]["attacks"])
         self.boss.statuses = b.get("statuses", {})
+        self.daily = data.get("daily")
+        if self.daily and self.daily.get("modifier") == "no_healing":
+            self.player.heal_mult = 0.0
         self.shop_stock = data.get("shop_stock", {})
         if not self.shop_stock:
             self.restock_shops()
@@ -1069,7 +1109,7 @@ class App:
         if pyxel.btnp(pyxel.KEY_R):
             score = self.calculate_score()
             victory = self.state == GameState.VICTORY
-            self.save_load.save_highscore("Hero", score, self.difficulty, self.current_floor, victory)
+            self.save_load.save_highscore("Hero", score, self.score_label(), self.current_floor, victory)
             self.reset_game(self.difficulty)
             self.sound.play(10)
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
@@ -1161,6 +1201,8 @@ class App:
 
         # HUD
         self.hud.draw_stats(self.player, 140 + sx, 20 + sy, self.current_floor)
+        if self.daily:
+            pyxel.text(140 + sx, 132 + sy, f"DAILY:{self.daily['modifier']}"[:18], 9)
         self.hud.draw_explore_hud(10 + sx, 150 + sy)
         self.hud.draw_log(10 + sx, 160 + sy)
         self.hud.draw_minimap(self.grid, self.player.x, self.player.y, 140 + sx, 130 + sy)
