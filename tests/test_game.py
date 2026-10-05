@@ -77,8 +77,20 @@ def fresh_app():
     app.inventory_selection = 0
     app.save_slot_selection = 0
     app.hs_filter = 0
+    app.hs_show_runs = False
     app.shop_discount = 1.0
     app.shop_invest = {}
+    app.mp_role = None
+    app.mp_ip = ""
+    app.mp_link = None
+    app.mp_listener = None
+    app.mp_pending_room = None
+    app.mp_welcome = None
+    app.partner = {"x": 3, "y": 3, "floor": 1, "seen": False}
+    app.daily = None
+    import time as _time
+    app.run_start = _time.time()
+    app.run_recorded = True
     app.shop_selection = 0
     app.shop_type = "merchant"
     app.sell_selection = 0
@@ -1052,7 +1064,84 @@ class TestStates(unittest.TestCase):
             os.chdir(cwd)
 
 
-class TestRNGProperties(unittest.TestCase):
+class TestNet(unittest.TestCase):
+    def test_link_roundtrip(self):
+        import socket
+        import time
+        from systems.net import Link, listen, accept, connect
+        a, b = socket.socketpair()
+        la, lb = Link(a), Link(b)
+        self.assertTrue(la.send({"type": "pos", "x": 1}))
+        for _ in range(100):
+            msgs = lb.poll()
+            if msgs:
+                break
+            time.sleep(0.01)
+        self.assertEqual(msgs, [{"type": "pos", "x": 1}])
+        lb.close()
+        for _ in range(100):
+            la.poll()
+            if not la.alive:
+                break
+            time.sleep(0.01)
+        self.assertFalse(la.alive)
+        la.close()
+
+    def test_listen_accept_connect(self):
+        from systems.net import listen, accept, connect
+        srv = listen(0)
+        port = srv.getsockname()[1]
+        link = connect("127.0.0.1", port)
+        self.assertIsNotNone(link)
+        got = None
+        import time
+        for _ in range(100):
+            got = accept(srv)
+            if got:
+                break
+            time.sleep(0.01)
+        self.assertIsNotNone(got)
+        link.close()
+        got.close()
+        srv.close()
+        self.assertIsNone(connect("127.0.0.1", port))
+
+    def test_mp_messages(self):
+        from main import GameState
+        app = fresh_app()
+        app.state = GameState.EXPLORE
+        app._mp_handle({"type": "pos", "x": 1, "y": 2, "floor": 1})
+        self.assertTrue(app.partner["seen"])
+        app._mp_handle({"type": "room_clear", "x": 1, "y": 1, "floor": 1})
+        self.assertTrue(app.grid[1][1].cleared)
+        self.assertIsNone(app.grid[1][1].monster)
+        # boss hp adopts lower value
+        app.state = GameState.BOSS_COMBAT
+        app.boss.hp = 10
+        app._mp_handle({"type": "boss_hp", "hp": 4, "phase": 0})
+        self.assertEqual(app.boss.hp, 4)
+        app._mp_handle({"type": "boss_hp", "hp": 9, "phase": 0})
+        self.assertEqual(app.boss.hp, 4)
+        # victory broadcast
+        app.state = GameState.EXPLORE
+        app._mp_handle({"type": "victory"})
+        self.assertEqual(app.state, GameState.VICTORY)
+
+    def test_newgame_submenu(self):
+        from main import GameState
+        app = fresh_app()
+        app.state = GameState.NEWGAME
+        app.menu_selection = 0
+        press(pyxel.KEY_RETURN)
+        app.update_newgame()
+        self.assertEqual(app.state, GameState.CLASS_SELECT)
+        self.assertIsNone(app.pending_daily)
+        app.state = GameState.NEWGAME
+        app.menu_selection = 2
+        press(pyxel.KEY_RETURN)
+        app.update_newgame()
+        self.assertIsNotNone(app.pending_daily)
+        press()
     """Seed-sweep invariants (stdlib property-style, no extra deps)."""
 
     def test_damage_never_zero_or_negative(self):
