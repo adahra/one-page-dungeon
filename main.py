@@ -54,6 +54,8 @@ class App:
         self.save_slot_selection = 0
         self.shop_selection = 0
         self.shop_type = None
+        self.sell_selection = 0
+        self.level_up_return = GameState.EXPLORE
         self.combat_log = []
         
         self._generate_dungeon()
@@ -79,6 +81,9 @@ class App:
         self.grid[3][3].explored = True
         self.grid[0][0].is_boss_room = True
         self.state = GameState.EXPLORE
+        self.previous_state = None
+        self.sell_selection = 0
+        self.level_up_return = GameState.EXPLORE
         self.hud.log_history.clear()
         self.hud.add_log("Welcome to the Lair of the Skull!")
         self.combat_log.clear()
@@ -159,6 +164,7 @@ class App:
 
     def update_explore(self):
         if pyxel.btnp(pyxel.KEY_I):
+            self.previous_state = self.state
             self.state = GameState.INVENTORY
             self.inventory_selection = 0
             self.sound.play(9)
@@ -279,6 +285,7 @@ class App:
                 leveled = self.player.add_xp(tr["val"])
                 self.hud.add_log(f"Found {tr['name']}! +{tr['val']} XP")
                 if leveled:
+                    self.level_up_return = GameState.EXPLORE
                     self.state = GameState.LEVEL_UP
             
             self.particles.add_gold_effect(50 + self.player.x * 30, 50 + self.player.y * 30)
@@ -288,6 +295,7 @@ class App:
         if room.feature and room.feature["effect"] == "shop":
             self.shop_type = "black_market" if room.feature["val"] == 1 else "merchant"
             self.shop_selection = 0
+            self.sell_selection = 0
             self.state = GameState.SHOP
             self.hud.add_log(f"SHOP: {SHOPS[self.shop_type]['name']}!")
             self.sound.play(11)
@@ -313,6 +321,7 @@ class App:
         elif pyxel.btnp(pyxel.KEY_3):
             self.player_attack(enemy, "magic")
         elif pyxel.btnp(pyxel.KEY_I):
+            self.previous_state = self.state
             self.state = GameState.INVENTORY
             self.inventory_selection = 0
             self.sound.play(9)
@@ -347,13 +356,11 @@ class App:
             self.sound.play(2)
             self.particles.add_magic_effect(180, 100)
 
-        # Safely modify enemy HP (Boss object vs dict)
-        if hasattr(enemy, "hp"):
+        is_boss = hasattr(enemy, "hp")
+        if is_boss:
             enemy.hp -= damage
-            hp_bar = f"{enemy.hp}/{enemy.max_hp}"
         else:
             enemy["hp"] -= damage
-            hp_bar = f"{enemy['hp']}/{enemy['max_hp']}"
 
         self.particles.add_damage_numbers(180, 80, damage, 10)
         # Safely get enemy name
@@ -365,7 +372,7 @@ class App:
         self.combat_log.append(f"You deal {damage} damage")
         self.screen_shake = 4
 
-        if hasattr(enemy, "hp"):
+        if is_boss:
             if enemy.hp <= 0:
                 enemy.hp = 0
                 # Get XP gain safely
@@ -376,41 +383,43 @@ class App:
                 else:
                     xp_gain = 10
                 gold_gain = random.randint(1, 3) * self.current_floor
-                self.player.add_xp(xp_gain)
+                leveled = self.player.add_xp(xp_gain)
                 self.player.add_gold(gold_gain)
                 self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
                 self.particles.add_explosion(180, 80, 10, 15, 3)
                 self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
-                
+
                 if self.state == GameState.BOSS_COMBAT:
                     self.check_boss_defeat()
                 else:
                     current_room = self.grid[self.player.y][self.player.x]
                     current_room.monster["hp"] = 0
                     self.state = GameState.EXPLORE
-                
-                if self.player.level > 1 and self.player.xp == 0:
+
+                if leveled and self.state not in (GameState.GAME_OVER, GameState.VICTORY):
+                    self.level_up_return = self.state
                     self.state = GameState.LEVEL_UP
-        else:
-            if enemy["hp"] <= 0:
-                enemy["hp"] = 0
-                xp_gain = enemy.get("xp", 10)
-                gold_gain = random.randint(1, 3) * self.current_floor
-                self.player.add_xp(xp_gain)
-                self.player.add_gold(gold_gain)
-                self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
-                self.particles.add_explosion(180, 80, 10, 15, 3)
-                self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
-                
-                if self.state == GameState.BOSS_COMBAT:
-                    self.check_boss_defeat()
-                else:
-                    current_room = self.grid[self.player.y][self.player.x]
-                    current_room.monster["hp"] = 0
-                    self.state = GameState.EXPLORE
-                
-                if self.player.level > 1 and self.player.xp == 0:
-                    self.state = GameState.LEVEL_UP
+                return
+        elif enemy["hp"] <= 0:
+            enemy["hp"] = 0
+            xp_gain = enemy.get("xp", 10)
+            gold_gain = random.randint(1, 3) * self.current_floor
+            leveled = self.player.add_xp(xp_gain)
+            self.player.add_gold(gold_gain)
+            self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
+            self.particles.add_explosion(180, 80, 10, 15, 3)
+            self.sound.play(7 if self.state == GameState.BOSS_COMBAT else 5)
+
+            if self.state == GameState.BOSS_COMBAT:
+                self.check_boss_defeat()
+            else:
+                current_room = self.grid[self.player.y][self.player.x]
+                current_room.monster["hp"] = 0
+                self.state = GameState.EXPLORE
+
+            if leveled and self.state not in (GameState.GAME_OVER, GameState.VICTORY):
+                self.level_up_return = self.state
+                self.state = GameState.LEVEL_UP
             return
 
         self.enemy_turn(enemy)
@@ -512,7 +521,10 @@ class App:
                     if success:
                         self.sound.play(6)
         elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_I):
-            self.state = GameState.EXPLORE if self.previous_state != GameState.COMBAT else GameState.COMBAT
+            if self.previous_state in (GameState.COMBAT, GameState.BOSS_COMBAT):
+                self.state = self.previous_state
+            else:
+                self.state = GameState.EXPLORE
             self.sound.play(9)
 
     def update_map(self):
@@ -671,7 +683,12 @@ class App:
             self.sound.play(6)
         
         if self.player.stat_points <= 0:
-            self.state = GameState.EXPLORE
+            if self.level_up_return in (GameState.COMBAT, GameState.BOSS_COMBAT,
+                                        GameState.EXPLORE, GameState.SHOP):
+                self.state = self.level_up_return
+            else:
+                self.state = GameState.EXPLORE
+            self.level_up_return = GameState.EXPLORE
             self.hud.add_log("Level up complete!")
             self.particles.add_level_up_effect(30, 30)
 
@@ -702,8 +719,15 @@ class App:
                     self.hud.add_log("Not enough gold!")
                     self.sound.play(4)
         elif pyxel.btnp(pyxel.KEY_S):
-            # Sell mode - sell selected inventory item
+            # Sell mode - sell selected inventory item (LEFT/RIGHT picks it)
             self.sell_item()
+        elif pyxel.btnp(pyxel.KEY_LEFT):
+            self.sell_selection = max(0, self.sell_selection - 1)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_RIGHT):
+            inv_len = len(self.player.inventory)
+            self.sell_selection = min(max(0, inv_len - 1), self.sell_selection + 1)
+            self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_B):
             self.state = GameState.EXPLORE
             self.sound.play(9)
@@ -715,11 +739,12 @@ class App:
             self.hud.add_log("Nothing to sell!")
             self.sound.play(4)
             return
-        
-        if self.shop_selection < len(items):
-            item_id, qty = items[self.shop_selection]
-            item = ITEMS.get(item_id)
-            if item:
+
+        idx = max(0, min(self.sell_selection, len(items) - 1))
+        self.sell_selection = idx
+        item_id, qty = items[idx]
+        item = ITEMS.get(item_id)
+        if item:
                 price = int(item["price"] * shop_data["buyback_mult"])
                 self.player.gold += price
                 self.player.remove_item(item_id)

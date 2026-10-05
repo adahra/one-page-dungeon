@@ -40,7 +40,7 @@ python main.py                   # 256x192 window, requires a display
 | `M` | Full map (`M`/`ESC`: back) |
 | `S` | Save/Load screen (Enter: save, `L`: load, 3 slots) |
 | `1`–`5` | Level-up: allocate stat point (M-ACK / R-ACK / DEF / MGK / Evasion) |
-| Shop: Enter / `S` / `B`,`ESC` | Buy selected / sell inventory item / leave |
+| Shop: Enter / `S` / ←`→` / `B`,`ESC` | Buy selected / sell chosen item / pick item to sell / leave |
 | `R` / `ESC` | Restart / back to title (Game Over / Victory) |
 | `ESC` | Pause menu / back |
 
