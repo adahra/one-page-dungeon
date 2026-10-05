@@ -41,6 +41,8 @@ python3 main.py                   # 256x192 window, requires a display
 | `M` | Full map (`M`/`ESC`: back) |
 | `S` | Save/Load screen (Enter: save, `L`: load, 3 slots; disabled in ironman) |
 | `D` (title) | Daily challenge: fixed seed + rotating modifier |
+| `T` | Cycle combat-log filter (ALL/DMG/HEAL/LOOT) |
+| `F` / `R` (scores) | Cycle filter all/ironman/daily, toggle run history |
 | `1`–`5` | Level-up: allocate stat point (M-ACK / R-ACK / DEF / MGK / Evasion) |
 | Shop: Enter / ←`→`+`S` / `B`,`ESC` | Buy selected / pick item + `S` to sell / leave |
 | Upgrades: `↑↓` + Enter | Buy soul upgrade / back with `ESC` |
@@ -89,6 +91,13 @@ Press `D` on the title: fixed seed for the date with a rotating modifier (double
 - Enchant weapons/armor with potions (`E`, +1/slot max +3)
 - Socket runes (`E` on a rune): Fire (+2 melee, may burn), Frost (+2 DEF), Venom (hits may poison); one per slot, swapping returns the old rune
 - Mysterious Egg treasure hatches a companion: Gold Gremlin (+15% gold), Blood Imp (1 dmg/round), Mana Wisp (+1 MP/round)
+
+### Multiplayer (experimental P2P co-op)
+New Game → Multiplayer: one side Hosts (port 8931), the other Joins by IP. Shared dungeon seed, partner marker `2` on the map, room/boss/victory sync; combat stays local. Link loss drops back to solo silently.
+
+### Quality of life
+- Auto-save on descend/level-up (`dungeon_auto.json`, not in ironman); Continue loads the newest save
+- Run history (`R` on scores screen), speedrun timer + floor splits, hover-to-select in inventory/shop
 
 ### Progression
 - 10 levels; XP from monsters, treasures, scrolls (incl. usable XP Scrolls)

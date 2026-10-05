@@ -63,7 +63,7 @@
 - No saves ✓, nightmare stats, 3x score, ironman-only score filter
 - Achievement unlocks ✓ (First Win, Iron Victory, Daily Champion, Deep Delver)
 
-## Polish & QoL
+## Polish & QoL (partial ✓)
 
 ### Visuals
 - **Sprite support** - replace primitives with `pyxel.edit` assets (16x16 tiles)
@@ -82,36 +82,31 @@
 - **Text scaling** option
 - **Gamepad support** - full controller mapping
 
-### UI/UX
-- **Tooltip on hover** - item/enemy stats
-- **Combat log filter** - show only damage/heals/crits
-- **Auto-save** on room clear, floor change, level up
-- **Run history** - view past runs from title (date, floor, score, cause of death)
-- **Speedrun timer** - in-game timer with splits
+### UI/UX ✓
+- **Tooltip on hover** ✓ - hovering rows selects items in inventory/shop
+- **Combat log filter** ✓ - `T` cycles ALL/DMG/HEAL/LOOT
+- **Auto-save** ✓ - on descend/level-up (`dungeon_auto.json`, skipped in ironman); Continue loads newest
+- **Run history** ✓ - last 20 runs, `R` on scores screen
+- **Speedrun timer** ✓ - live timer + floor split logs
 
-## Technical Debt
+## Technical Debt (partial ✓)
 
-### Testing
-- Add unit tests for: Player stats, damage calc, XP/leveling, save/load
-- Property-based tests for RNG systems
-- Integration test: full run simulation
+### Testing ✓ (see above)
 
 ### Architecture
 - **Event system** - decouple combat, particles, sound from direct calls
-- **Data validation** - schema for game_data.py (pydantic/attrs)
-- **Config file** - externalize constants (screen size, FPS, grid size)
+- **Data validation** ✓ - `systems/validate.py` checks all tables at import
+- **Config file** ✓ - `config.py` (screen, grid, files, MP port)
 
 ### Performance
-- Object pooling for particles
+- Object pooling for particles (mitigated: 400-particle cap)
 - Spatial partitioning if entities > 100
 - Profile draw/update loops
 
-## Ideas for Later
+## Ideas for Later (partial ✓)
 
-### Multiplayer (Local Co-op)
-- 2 players, shared screen, split inventory
-- Revive mechanic
-- Shared gold/XP
+### Multiplayer (Local Co-op) ✓ experimental P2P
+- Host/Join over TCP (`systems/net.py`, port 8931), shared seed, partner marker, room/boss/victory sync; combat local; silent fallback to solo
 
 ### Modding Support
 - JSON-based content packs (monsters, items, rooms)
