@@ -143,6 +143,9 @@ class HUD:
             for slot, eq_id in player.equipped.items():
                 if eq_id == item_id:
                     eq_marker = f" [E:{slot[0].upper()}]"
+                    sock = player.sockets.get(slot) if hasattr(player, "sockets") else None
+                    if sock:
+                        eq_marker += f"<{ITEMS.get(sock, {}).get('name', '?').split()[0]}>"
                     break
             pyxel.text(x, y + 15 + i * 10, f"{item['name']} x{qty}{eq_marker}", color)
         

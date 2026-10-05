@@ -59,6 +59,9 @@ ITEMS = {
     "tome_fire": {"name": "Tome of Flames", "type": "consumable", "effect": "teach_skill", "skill": "fireball", "val": 0, "price": 200, "desc": "Teaches Fireball"},
     "tome_smoke": {"name": "Tome of Shadows", "type": "consumable", "effect": "teach_skill", "skill": "smoke_bomb", "val": 0, "price": 200, "desc": "Teaches Smoke Bomb"},
     "mystery_egg": {"name": "Mysterious Egg", "type": "consumable", "effect": "hatch", "val": 0, "price": 100, "desc": "Hatches a companion"},
+    "fire_rune": {"name": "Fire Rune", "type": "rune", "slot": "weapon", "val": 2, "price": 80, "desc": "Socket weapon: +2 melee, may burn"},
+    "frost_rune": {"name": "Frost Rune", "type": "rune", "slot": "armor", "val": 2, "price": 80, "desc": "Socket armor: +2 DEF"},
+    "venom_rune": {"name": "Venom Rune", "type": "rune", "slot": "weapon", "val": 0, "price": 80, "desc": "Socket weapon: hits may poison"},
     "rat_tail": {"name": "Rat Tail", "type": "quest", "val": 0, "price": 5, "desc": "Shopkeepers want these (3x = discount)"},
     "iron_sword": {"name": "Iron Sword", "type": "equipment", "slot": "weapon", "atk_bonus": 1, "price": 100, "desc": "+1 M-ACK"},
     "steel_sword": {"name": "Steel Sword", "type": "equipment", "slot": "weapon", "atk_bonus": 2, "price": 250, "desc": "+2 M-ACK"},
@@ -95,7 +98,7 @@ SHOPS = {
     },
     "enchanter": {
         "name": "Mystic Enchanter",
-        "items": ["mana_potion", "greater_mana", "magic_potion", "xp_scroll", "magic_wand", "tome_power", "tome_heal", "tome_fire", "tome_smoke", "mystery_egg"],
+        "items": ["mana_potion", "greater_mana", "magic_potion", "xp_scroll", "magic_wand", "tome_power", "tome_heal", "tome_fire", "tome_smoke", "mystery_egg", "fire_rune", "frost_rune", "venom_rune"],
         "price_mult": 1.2,
         "buyback_mult": 0.4,
     },

@@ -86,6 +86,8 @@ Press `D` on the title: fixed seed for the date with a rotating modifier (double
 
 ### Crafting & companions
 - Combine 2 Health/Mana Potions into Greater ones (`C` in inventory)
+- Enchant weapons/armor with potions (`E`, +1/slot max +3)
+- Socket runes (`E` on a rune): Fire (+2 melee, may burn), Frost (+2 DEF), Venom (hits may poison); one per slot, swapping returns the old rune
 - Mysterious Egg treasure hatches a companion: Gold Gremlin (+15% gold), Blood Imp (1 dmg/round), Mana Wisp (+1 MP/round)
 
 ### Progression

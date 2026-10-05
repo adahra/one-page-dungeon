@@ -39,6 +39,7 @@ class SaveLoadSystem:
                 "cooldowns": getattr(player, "cooldowns", {}),
                 "companion": getattr(player, "companion", None),
                 "enchant": getattr(player, "enchant", {}),
+                "sockets": getattr(player, "sockets", {}),
             },
             "dungeon": {
                 "grid": [[{

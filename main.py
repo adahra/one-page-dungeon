@@ -528,6 +528,12 @@ class App:
 
         if self._deal_damage(enemy, damage):
             return
+        if attack_type == "melee":
+            rune = self.player.sockets.get("weapon")
+            if rune == "venom_rune" and random.random() < 0.3:
+                self._apply_enemy_status(enemy, "poison", 2)
+            elif rune == "fire_rune" and random.random() < 0.25:
+                self._apply_enemy_status(enemy, "burn", 2)
         self.enemy_turn(enemy)
 
     def _deal_damage(self, enemy, damage):
@@ -867,7 +873,11 @@ class App:
         elif pyxel.btnp(pyxel.KEY_E):
             if items and self.inventory_selection < len(items):
                 item_id = items[self.inventory_selection][0]
-                success, msg = self.player.enchant_item(item_id)
+                item = ITEMS.get(item_id, {})
+                if item.get("type") == "rune":
+                    success, msg = self.player.socket_rune(item_id)
+                else:
+                    success, msg = self.player.enchant_item(item_id)
                 self.hud.add_log(msg)
                 self.sound.play(6 if success else 4)
         elif pyxel.btnp(pyxel.KEY_ESCAPE) or pyxel.btnp(pyxel.KEY_I):
@@ -915,6 +925,7 @@ class App:
                     "cooldowns": self.player.cooldowns,
                     "companion": self.player.companion,
                     "enchant": self.player.enchant,
+                    "sockets": self.player.sockets,
                 },
                 "dungeon": {
                     "grid": [[{
@@ -975,6 +986,7 @@ class App:
         self.player.cooldowns = p.get("cooldowns", {})
         self.player.companion = p.get("companion")
         self.player.enchant = p.get("enchant", {"weapon": 0, "armor": 0, "accessory": 0})
+        self.player.sockets = p.get("sockets", {"weapon": None, "armor": None})
         
         self.current_floor = data["dungeon"]["current_floor"]
         self.seed = data["dungeon"]["seed"]

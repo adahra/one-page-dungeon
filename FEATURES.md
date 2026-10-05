@@ -45,10 +45,10 @@
 - **Quests** ✓ - 3 Rat Tails (Ratdog drops) → permanent 20% discount
 - **Investment** ✓ - 100G×level (max 5) raises buyback +5%/level per shop
 
-### Crafting / Enchanting ✓ partial
+### Crafting / Enchanting ✓
 - Combine items ✓ (2 Health/Mana → Greater via `C`)
 - Enchant equipment ✓ (potion fuel, `E`, +1/slot max +3)
-- Rune socket system
+- Rune sockets ✓ (Fire/Frost/Venom runes via `E`, one per weapon/armor, swap returns old)
 
 ### Pet / Companion System ✓
 - Eggs in treasure → hatch companions (Gremlin/Imp/Wisp)

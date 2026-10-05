@@ -27,6 +27,7 @@ class Player:
         self.cooldowns = {}
         self.companion = None
         self.enchant = {"weapon": 0, "armor": 0, "accessory": 0}
+        self.sockets = {"weapon": None, "armor": None}
         for slot, item_id in spec["equipment"].items():
             if item_id:
                 self.equipped[slot] = item_id
@@ -40,6 +41,8 @@ class Player:
         bonus = 0
         if self.equipped["weapon"] and self.equipped["weapon"] in ITEMS:
             bonus += ITEMS[self.equipped["weapon"]].get("atk_bonus", 0)
+        if self.sockets.get("weapon") == "fire_rune":
+            bonus += 2
         return self.base_m_ack + bonus + self.enchant.get("weapon", 0)
 
     @property
@@ -52,6 +55,8 @@ class Player:
         bonus = 0
         if self.equipped["armor"] and self.equipped["armor"] in ITEMS:
             bonus += ITEMS[self.equipped["armor"]].get("def_bonus", 0)
+        if self.sockets.get("armor") == "frost_rune":
+            bonus += 2
         return self.base_defense + bonus + self.enchant.get("armor", 0) + defense_modifier(self.statuses)
 
     @property
@@ -109,6 +114,22 @@ class Player:
             self.inventory[item_id] -= quantity
             if self.inventory[item_id] <= 0:
                 del self.inventory[item_id]
+
+    def socket_rune(self, rune_id):
+        from data.game_data import ITEMS
+        rune = ITEMS.get(rune_id)
+        if not rune or rune.get("type") != "rune":
+            return False, "Not a rune"
+        if self.inventory.get(rune_id, 0) < 1:
+            return False, "No rune"
+        slot = rune.get("slot")
+        self.remove_item(rune_id)
+        old = self.sockets.get(slot)
+        self.sockets[slot] = rune_id
+        if old:
+            self.add_item(old)
+            return True, f"Swapped {rune['name']} in ({ITEMS[old]['name']} back)!"
+        return True, f"Socketed {rune['name']}!"
 
     def enchant_item(self, item_id):
         from data.game_data import ITEMS
