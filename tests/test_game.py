@@ -76,7 +76,7 @@ def fresh_app():
     app.daily = None
     app.inventory_selection = 0
     app.save_slot_selection = 0
-    app.hs_ironman_only = False
+    app.hs_filter = 0
     app.shop_discount = 1.0
     app.shop_invest = {}
     app.shop_selection = 0
@@ -890,7 +890,13 @@ class TestStates(unittest.TestCase):
         app.state = GameState.HIGHSCORES
         press(pyxel.KEY_F)
         app.update_highscores()
-        self.assertTrue(app.hs_ironman_only)
+        self.assertEqual(app.hs_filter, 1)
+        press(pyxel.KEY_F)
+        app.update_highscores()
+        self.assertEqual(app.hs_filter, 2)
+        press(pyxel.KEY_F)
+        app.update_highscores()
+        self.assertEqual(app.hs_filter, 0)
         press(pyxel.KEY_ESCAPE)
         app.update_highscores()
         self.assertEqual(app.state, GameState.TITLE)

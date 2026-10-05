@@ -57,7 +57,7 @@ class App:
         
         self.menu_selection = 0
         self.class_selection = 0
-        self.hs_ironman_only = False
+        self.hs_filter = 0  # 0=all, 1=ironman, 2=daily
         self.pending_class = "warrior"
         self.pending_daily = None
         self.inventory_selection = 0
@@ -1003,7 +1003,7 @@ class App:
 
     def update_highscores(self):
         if pyxel.btnp(pyxel.KEY_F):
-            self.hs_ironman_only = not self.hs_ironman_only
+            self.hs_filter = (self.hs_filter + 1) % 3
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_ESCAPE):
             self.state = GameState.TITLE
@@ -1356,10 +1356,12 @@ class App:
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
         scores = self.save_load.load_highscores()
-        if self.hs_ironman_only:
+        if self.hs_filter == 1:
             scores = [s for s in scores if s.get("difficulty") == "ironman"]
-        self.hud.draw_highscores(scores, 20 + sx, 20 + sy, self.hs_ironman_only)
-        pyxel.text(20 + sx, 170 + sy, "[F] Ironman only  [Esc] Back", 6)
+        elif self.hs_filter == 2:
+            scores = [s for s in scores if str(s.get("difficulty", "")).startswith("daily:")]
+        self.hud.draw_highscores(scores, 20 + sx, 20 + sy, self.hs_filter)
+        pyxel.text(20 + sx, 170 + sy, "[F] Filter  [Esc] Back", 6)
 
     def draw_settings(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)

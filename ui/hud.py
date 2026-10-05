@@ -164,8 +164,9 @@ class HUD:
             else:
                 pyxel.text(x, y + 15 + i * 12, f"  Slot {i+1}: [Empty]", 5)
 
-    def draw_highscores(self, scores, x, y, ironman_only=False):
-        pyxel.text(x, y, "HIGH SCORES" + (" (IRONMAN)" if ironman_only else ""), 10)
+    def draw_highscores(self, scores, x, y, hs_filter=0):
+        tag = {1: " (IRONMAN)", 2: " (DAILY)"}.get(hs_filter, "")
+        pyxel.text(x, y, "HIGH SCORES" + tag, 10)
         pyxel.text(x, y + 12, "Name        Score  Diff    Flr  W/L", 6)
         for i, s in enumerate(scores[:8]):
             color = 10 if i < 3 else 7
