@@ -16,6 +16,7 @@ from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, fort
 from systems.daily import daily_info, MODIFIERS
 from systems.net import Link, listen as net_listen, accept as net_accept, connect as net_connect
 from systems.anticheat import HostGuard
+from systems.events import Bus
 from config import MP_PORT
 from entities.player import Player
 from entities.room import Room
@@ -51,6 +52,8 @@ class App:
         self.save_load = SaveLoadSystem()
         self.particles = ParticleSystem()
         self.hud = HUD()
+        self.bus = Bus()
+        self._wire_events()
         try:
             from ui.sprites import load_into_bank
             load_into_bank(pyxel.images)
@@ -114,6 +117,36 @@ class App:
         self.grid[0][0].is_boss_room = True
         
         pyxel.run(self.update, self.draw)
+
+    def _wire_events(self):
+        bus = self.bus
+        bus.sub("hit", self._fx_hit)
+        bus.sub("kill", self._fx_kill)
+        bus.sub("hurt", self._fx_hurt)
+
+    def _fx_hit(self, enemy=None, damage=0, **kw):
+        self.particles.add_damage_numbers(180, 80, damage, 10)
+        ename = enemy.name if hasattr(enemy, "name") else enemy["name"]
+        self.hud.add_log(f"You hit {ename} for {damage}!")
+        self.combat_log.append(f"You deal {damage} damage")
+        self.screen_shake = 4
+        self.combat_anim = 6
+        self.hit_flash = 4
+        self.sound.play(kw.get("sound", 0))
+
+    def _fx_kill(self, enemy=None, xp_gain=0, gold_gain=0, boss_fight=False, **kw):
+        ename = enemy.name if hasattr(enemy, "name") else enemy["name"]
+        self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
+        self.particles.add_explosion(180, 80, 10, 15, 3)
+        self.sound.play(7 if boss_fight else 5)
+
+    def _fx_hurt(self, amount=0, source="", boss_fight=False, **kw):
+        self.particles.add_damage_numbers(30, 30, amount, 8)
+        self.particles.add_blood_effect(30, 30)
+        self.hud.add_log(source)
+        self.combat_log.append(source)
+        self.screen_shake = 8 if boss_fight else 6
+        self.sound.play(3)
 
     def _generate_dungeon(self):
         for y in range(4):
@@ -1060,12 +1093,12 @@ class App:
             base_dmg = self.player.m_ack
             roll = random.randint(1, 6)
             damage = max(1, base_dmg + roll - 3)
-            self.sound.play(0)
+            atk_sound = 0
         elif attack_type == "ranged":
             base_dmg = self.player.r_ack
             roll = random.randint(1, 6)
             damage = max(1, base_dmg + roll - 3)
-            self.sound.play(1)
+            atk_sound = 1
         elif attack_type == "magic":
             if self.player.mp <= 0:
                 self.hud.add_log("Not enough MP!")
@@ -1073,10 +1106,10 @@ class App:
                 return
             self.player.mp -= 1
             damage = self.player.magic + 2
-            self.sound.play(2)
+            atk_sound = 2
             self.particles.add_magic_effect(180, 100)
 
-        if self._deal_damage(enemy, damage):
+        if self._deal_damage(enemy, damage, sound=atk_sound):
             return
         if attack_type == "melee":
             rune = self.player.sockets.get("weapon")
@@ -1086,7 +1119,7 @@ class App:
                 self._apply_enemy_status(enemy, "burn", 2)
         self.enemy_turn(enemy)
 
-    def _deal_damage(self, enemy, damage):
+    def _deal_damage(self, enemy, damage, sound=None):
         """Apply damage to a dict-monster or the Boss object.
 
         Handles kill rewards and state transitions.
@@ -1105,6 +1138,8 @@ class App:
         self.screen_shake = 4
         self.combat_anim = 6
         self.hit_flash = 4
+        if sound is not None:
+            self.sound.play(sound)
 
         hp_left = enemy.hp if is_boss else enemy["hp"]
         if hp_left > 0:

@@ -4,6 +4,9 @@ import pyxel
 
 class Particle:
     def __init__(self, x, y, vx, vy, color, life, size=1, gravity=0):
+        self.reset(x, y, vx, vy, color, life, size, gravity)
+
+    def reset(self, x, y, vx, vy, color, life, size=1, gravity=0):
         self.x = x
         self.y = y
         self.vx = vx
@@ -29,11 +32,26 @@ class Particle:
 class ParticleSystem:
     def __init__(self):
         self.particles = []
+        self._pool = []
+
+    def _spawn(self, x, y, vx, vy, color, life, size=1, gravity=0):
+        if self._pool:
+            p = self._pool.pop()
+            p.reset(x, y, vx, vy, color, life, size, gravity)
+        else:
+            p = Particle(x, y, vx, vy, color, life, size, gravity)
+        self.particles.append(p)
+        return p
 
     def update(self):
-        self.particles = [p for p in self.particles if p.life > 0]
+        alive = []
         for p in self.particles:
             p.update()
+            if p.life > 0:
+                alive.append(p)
+            elif len(self._pool) < 400:
+                self._pool.append(p)
+        self.particles = alive
         if len(self.particles) > 400:  # cap: drop oldest first
             del self.particles[:len(self.particles) - 400]
 
@@ -41,14 +59,14 @@ class ParticleSystem:
         for _ in range(count):
             angle = random.random() * 6.28
             spd = random.uniform(0.5, speed)
-            self.particles.append(Particle(
+            self._spawn(
                 x, y,
                 spd * math.cos(angle),
                 spd * math.sin(angle),
                 random.choice(colors),
                 random.randint(15, 30),
                 random.randint(1, size + 1),
-            ))
+            )
 
     def add_fire_effect(self, x, y):
         self.add_burst(x, y, [9, 10, 8], count=10, speed=2)
@@ -64,18 +82,18 @@ class ParticleSystem:
         for _ in range(count):
             angle = random.random() * 6.28
             spd = random.uniform(0.5, speed)
-            self.particles.append(Particle(
+            self._spawn(
                 x, y,
                 spd * math.cos(angle),
                 spd * math.sin(angle),
                 color,
                 random.randint(15, 30),
                 random.randint(1, 2)
-            ))
+            )
 
     def add_damage_numbers(self, x, y, amount, color=8):
         for i, digit in enumerate(str(amount)):
-            self.particles.append(Particle(
+            self._spawn(
                 x + i * 6, y,
                 random.uniform(-0.5, 0.5),
                 -1.5,
@@ -83,11 +101,11 @@ class ParticleSystem:
                 30,
                 1,
                 -0.05
-            ))
+            )
 
     def add_heal_effect(self, x, y):
         for _ in range(8):
-            self.particles.append(Particle(
+            self._spawn(
                 x + random.randint(-8, 8), y + random.randint(-8, 8),
                 random.uniform(-0.3, 0.3),
                 -1,
@@ -95,24 +113,24 @@ class ParticleSystem:
                 random.randint(20, 40),
                 1,
                 -0.02
-            ))
+            )
 
     def add_magic_effect(self, x, y):
         for _ in range(12):
             angle = random.random() * 6.28
             spd = random.uniform(1, 3)
-            self.particles.append(Particle(
+            self._spawn(
                 x, y,
                 spd * math.cos(angle),
                 spd * math.sin(angle),
                 random.choice([12, 5, 13]),
                 random.randint(20, 40),
                 2
-            ))
+            )
 
     def add_blood_effect(self, x, y):
         for _ in range(6):
-            self.particles.append(Particle(
+            self._spawn(
                 x, y,
                 random.uniform(-1, 1),
                 random.uniform(-2, 0),
@@ -120,24 +138,24 @@ class ParticleSystem:
                 random.randint(15, 25),
                 1,
                 0.1
-            ))
+            )
 
     def add_level_up_effect(self, x, y):
         for _ in range(20):
             angle = random.random() * 6.28
             spd = random.uniform(1, 4)
-            self.particles.append(Particle(
+            self._spawn(
                 x, y,
                 spd * math.cos(angle),
                 spd * math.sin(angle),
                 random.choice([10, 7, 9, 14]),
                 random.randint(30, 60),
                 2
-            ))
+            )
 
     def add_gold_effect(self, x, y):
         for _ in range(8):
-            self.particles.append(Particle(
+            self._spawn(
                 x, y,
                 random.uniform(-1, 1),
                 random.uniform(-2, -0.5),
@@ -145,4 +163,4 @@ class ParticleSystem:
                 random.randint(20, 35),
                 1,
                 0.05
-            ))
+            )
