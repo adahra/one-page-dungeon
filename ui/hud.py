@@ -11,9 +11,10 @@ class HUD:
             self.log_history.pop(0)
 
     def draw_stats(self, player, x, y, floor=1):
-        from data.game_data import FINAL_FLOOR, CLASSES
+        from data.game_data import FINAL_FLOOR, CLASSES, COMPANIONS
         cls_name = CLASSES.get(getattr(player, "char_class", "warrior"), {}).get("name", "?")
-        pyxel.text(x, y, f"== {cls_name.upper()} ==", 6)
+        pet = COMPANIONS.get(getattr(player, "companion", None), {}).get("name", "")
+        pyxel.text(x, y, f"== {cls_name.upper()} ==" + (f" +{pet.upper()}" if pet else ""), 6)
         pyxel.text(x, y + 12, f"HP:  {player.hp}/{player.max_hp}", 8)
         pyxel.text(x, y + 22, f"MP:  {player.mp}/{player.max_mp}", 12)
         pyxel.text(x, y + 32, f"LVL: {player.level} FLR:{floor}/{FINAL_FLOOR} XP:{player.xp}", 10)

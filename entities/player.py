@@ -24,6 +24,7 @@ class Player:
         self.statuses = {}
         self.skills_unlocked = []
         self.cooldowns = {}
+        self.companion = None
         for slot, item_id in spec["equipment"].items():
             if item_id:
                 self.equipped[slot] = item_id
@@ -161,6 +162,12 @@ class Player:
                 return True, f"Already know {SKILLS[skill_id]['name']}"
             self.skills_unlocked.append(skill_id)
             msg = f"Learned {SKILLS[skill_id]['name']}! (key {SKILLS[skill_id]['key']})"
+        elif effect == "hatch":
+            import random
+            from data.game_data import COMPANIONS
+            cid = random.choice(list(COMPANIONS))
+            self.companion = cid
+            msg = f"Hatched {COMPANIONS[cid]['name']}! {COMPANIONS[cid]['desc']}"
         
         self.remove_item(item_id)
         return True, msg

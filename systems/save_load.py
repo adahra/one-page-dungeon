@@ -37,6 +37,7 @@ class SaveLoadSystem:
                 "statuses": getattr(player, "statuses", {}),
                 "skills_unlocked": getattr(player, "skills_unlocked", []),
                 "cooldowns": getattr(player, "cooldowns", {}),
+                "companion": getattr(player, "companion", None),
             },
             "dungeon": {
                 "grid": [[{

@@ -41,7 +41,7 @@ class Room:
             self.feature = feat
 
         # Roll Treasure
-        t_roll = random.randint(1, 11)
+        t_roll = random.randint(1, 12)
         if TREASURES[t_roll]:
             tr = TREASURES[t_roll].copy()
             if tr["type"].startswith("gold"):

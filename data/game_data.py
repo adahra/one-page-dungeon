@@ -42,7 +42,7 @@ TREASURES = {
     9: {"name": "Defense Potion", "type": "buff_def", "val": 1, "desc": "Perm +1 DEF"},
     10: {"name": "Magic Potion", "type": "buff_mgk", "val": 1, "desc": "Perm +1 MGK"},
     11: {"name": "XP Scroll", "type": "xp", "val": 25, "desc": "Grants 25 XP"},
-    12: None,
+    12: {"name": "Mysterious Egg", "type": "item", "val": "mystery_egg", "desc": "Hatches a companion"},
 }
 
 ITEMS = {
@@ -58,6 +58,7 @@ ITEMS = {
     "tome_heal": {"name": "Tome of Mending", "type": "consumable", "effect": "teach_skill", "skill": "heal", "val": 0, "price": 150, "desc": "Teaches Heal"},
     "tome_fire": {"name": "Tome of Flames", "type": "consumable", "effect": "teach_skill", "skill": "fireball", "val": 0, "price": 200, "desc": "Teaches Fireball"},
     "tome_smoke": {"name": "Tome of Shadows", "type": "consumable", "effect": "teach_skill", "skill": "smoke_bomb", "val": 0, "price": 200, "desc": "Teaches Smoke Bomb"},
+    "mystery_egg": {"name": "Mysterious Egg", "type": "consumable", "effect": "hatch", "val": 0, "price": 100, "desc": "Hatches a companion"},
     "iron_sword": {"name": "Iron Sword", "type": "equipment", "slot": "weapon", "atk_bonus": 1, "price": 100, "desc": "+1 M-ACK"},
     "steel_sword": {"name": "Steel Sword", "type": "equipment", "slot": "weapon", "atk_bonus": 2, "price": 250, "desc": "+2 M-ACK"},
     "magic_wand": {"name": "Magic Wand", "type": "equipment", "slot": "weapon", "mgk_bonus": 1, "price": 100, "desc": "+1 MGK"},
@@ -108,6 +109,12 @@ BOSS_FLOOR_HP_SCALE = 0.25
 RECIPES = {
     "greater_health": {"health_potion": 2},
     "greater_mana": {"mana_potion": 2},
+}
+
+COMPANIONS = {
+    "gremlin": {"name": "Gold Gremlin", "desc": "+15% gold loot"},
+    "imp": {"name": "Blood Imp", "desc": "Nips enemies for 1 dmg/round"},
+    "wisp": {"name": "Mana Wisp", "desc": "+1 MP each round"},
 }
 
 CLASSES = {

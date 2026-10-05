@@ -194,6 +194,11 @@ class TestPlayer(unittest.TestCase):
         p.add_item("iron_sword")
         ok, msg = p.craft("iron_sword")
         self.assertFalse(ok)
+        import random
+        random.seed(0)
+        p.add_item("mystery_egg")
+        ok, msg = p.use_item("mystery_egg")
+        self.assertTrue(ok and p.companion in ("gremlin", "imp", "wisp"))
 
     def test_equip(self):
         from entities.player import Player
@@ -563,6 +568,22 @@ class TestCombat(unittest.TestCase):
         app.grant_pending_skills()
         self.assertEqual(set(app.player.skills_unlocked),
                          {"power_strike", "heal", "fireball", "smoke_bomb"})
+
+    def test_companion_hooks(self):
+        app = self._combat_app()
+        app.player.companion = "gremlin"
+        self.assertAlmostEqual(app.gold_mult(), 1.15)
+        # imp assists and can finish the enemy
+        app.player.companion = "imp"
+        app.grid[1][1].monster["hp"] = 1
+        app.enemy_turn(app.grid[1][1].monster)
+        self.assertEqual(app.grid[1][1].monster["hp"], 0)
+        # wisp restores MP
+        app2 = self._combat_app()
+        app2.player.companion = "wisp"
+        app2.player.mp = 0
+        app2.enemy_turn(app2.grid[1][1].monster)
+        self.assertEqual(app2.player.mp, 1)
 
     def test_deal_damage_boss_xp(self):
         app = self._combat_app()

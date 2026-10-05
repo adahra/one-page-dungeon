@@ -341,7 +341,7 @@ class App:
         if room.treasure:
             tr = room.treasure
             floor_bonus = self.current_floor - 1
-            loot_mult = fortune_mult(self.meta)
+            loot_mult = self.gold_mult()
             if tr["type"] == "gold":
                 amount = int((tr["val"] + floor_bonus) * loot_mult)
                 self.player.add_gold(amount)
@@ -376,6 +376,10 @@ class App:
                     self.grant_pending_skills()
                     self.level_up_return = GameState.EXPLORE
                     self.state = GameState.LEVEL_UP
+            elif tr["type"] == "item":
+                self.player.add_item(tr["val"])
+                item = ITEMS.get(tr["val"], {"name": tr["val"]})
+                self.hud.add_log(f"Found {tr['name']}! Got {item['name']}")
             
             self.particles.add_gold_effect(50 + self.player.x * 30, 50 + self.player.y * 30)
             self.sound.play(11)
@@ -515,7 +519,7 @@ class App:
         else:
             enemy["hp"] = 0
             xp_gain = enemy.get("xp", 10)
-        gold_gain = int(random.randint(1, 3) * self.current_floor * fortune_mult(self.meta))
+        gold_gain = int(random.randint(1, 3) * self.current_floor * self.gold_mult())
         leveled = self.player.add_xp(xp_gain)
         self.player.add_gold(gold_gain)
         self.hud.add_log(f"Victory! +{xp_gain} XP, +{gold_gain} Gold")
@@ -535,6 +539,12 @@ class App:
             self.level_up_return = self.state
             self.state = GameState.LEVEL_UP
         return True
+
+    def gold_mult(self):
+        mult = fortune_mult(self.meta)
+        if self.player.companion == "gremlin":
+            mult *= 1.15
+        return mult
 
     def grant_pending_skills(self):
         from systems.skills import UNLOCK_LEVELS, SKILLS
@@ -639,6 +649,10 @@ class App:
         return False
 
     def enemy_turn(self, enemy):
+        if self.player.companion == "imp":
+            self.hud.add_log("Blood Imp nips the foe!")
+            if self._deal_damage(enemy, 1):
+                return
         if self._tick_enemy_statuses(enemy):
             return
         if self.state == GameState.BOSS_COMBAT:
@@ -705,6 +719,9 @@ class App:
         for effect in expired:
             from systems.status import EFFECTS
             self.hud.add_log(f"{EFFECTS[effect]['name']} wore off.")
+        if self.player.companion == "wisp" and self.player.mp < self.player.max_mp:
+            self.player.mp += 1
+            self.hud.add_log("Mana Wisp restores 1 MP")
 
         if self.player.hp <= 0:
             self.player.hp = 0
@@ -822,6 +839,7 @@ class App:
                     "statuses": self.player.statuses,
                     "skills_unlocked": self.player.skills_unlocked,
                     "cooldowns": self.player.cooldowns,
+                    "companion": self.player.companion,
                 },
                 "dungeon": {
                     "grid": [[{
@@ -877,6 +895,7 @@ class App:
         self.player.statuses = p.get("statuses", {})
         self.player.skills_unlocked = p.get("skills_unlocked", [])
         self.player.cooldowns = p.get("cooldowns", {})
+        self.player.companion = p.get("companion")
         
         self.current_floor = data["dungeon"]["current_floor"]
         self.seed = data["dungeon"]["seed"]
