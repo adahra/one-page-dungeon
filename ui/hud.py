@@ -11,8 +11,9 @@ class HUD:
             self.log_history.pop(0)
 
     def draw_stats(self, player, x, y, floor=1):
-        from data.game_data import FINAL_FLOOR
-        pyxel.text(x, y, "=== CHARACTER ===", 6)
+        from data.game_data import FINAL_FLOOR, CLASSES
+        cls_name = CLASSES.get(getattr(player, "char_class", "warrior"), {}).get("name", "?")
+        pyxel.text(x, y, f"== {cls_name.upper()} ==", 6)
         pyxel.text(x, y + 12, f"HP:  {player.hp}/{player.max_hp}", 8)
         pyxel.text(x, y + 22, f"MP:  {player.mp}/{player.max_mp}", 12)
         pyxel.text(x, y + 32, f"LVL: {player.level} FLR:{floor}/{FINAL_FLOOR} XP:{player.xp}", 10)
@@ -188,6 +189,16 @@ class HUD:
         pyxel.text(x + 30, y + 12, "LAIR OF THE SKULL", 8)
         options = ["New Game", "Continue", "High Scores", "Settings", "Quit"]
         self.draw_menu(options, selected, x + 20, y + 40)
+
+    def draw_class_select(self, selected, x, y):
+        from data.game_data import CLASSES
+        pyxel.text(x, y, "CHOOSE CLASS", 10)
+        for i, (cid, spec) in enumerate(CLASSES.items()):
+            color = 10 if i == selected else 7
+            pyxel.text(x, y + 15 + i * 22, f"{'> ' if i == selected else '  '}{spec['name']}", color)
+            pyxel.text(x + 10, y + 15 + i * 22 + 8,
+                       f"HP{spec['hp']} MP{spec['mp']} ATK{spec['m_ack']} R{spec['r_ack']} D{spec['defense']} M{spec['magic']} E{spec['evasion']}", 5)
+            pyxel.text(x + 10, y + 15 + i * 22 + 14, spec["desc"][:34], 6)
 
     def draw_difficulty_select(self, x, y, selected):
         from data.game_data import DIFFICULTY

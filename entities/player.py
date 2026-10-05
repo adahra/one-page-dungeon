@@ -1,27 +1,32 @@
-from data.game_data import XP_TABLE, MAX_LEVEL, ITEMS
+from data.game_data import XP_TABLE, MAX_LEVEL, ITEMS, CLASSES
 
 class Player:
-    def __init__(self):
+    def __init__(self, char_class="warrior"):
+        spec = CLASSES.get(char_class, CLASSES["warrior"])
+        self.char_class = char_class if char_class in CLASSES else "warrior"
         self.x = 3
         self.y = 3
-        self.hp = 4
-        self.max_hp = 4
-        self.mp = 4
-        self.max_mp = 4
-        self.base_m_ack = 2
-        self.base_r_ack = 1
-        self.base_defense = 1
-        self.base_magic = 1
+        self.hp = spec["hp"]
+        self.max_hp = spec["hp"]
+        self.mp = spec["mp"]
+        self.max_mp = spec["mp"]
+        self.base_m_ack = spec["m_ack"]
+        self.base_r_ack = spec["r_ack"]
+        self.base_defense = spec["defense"]
+        self.base_magic = spec["magic"]
         self.gold = 0
         self.xp = 0
         self.level = 1
         self.inventory = {}
         self.equipped = {"weapon": None, "armor": None, "accessory": None}
-        self.evasion = 0
+        self.evasion = spec["evasion"]
         self.stat_points = 0
         self.statuses = {}
         self.skills_unlocked = []
         self.cooldowns = {}
+        for slot, item_id in spec["equipment"].items():
+            if item_id:
+                self.equipped[slot] = item_id
 
     @property
     def m_ack(self):

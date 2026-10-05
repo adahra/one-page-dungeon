@@ -100,3 +100,18 @@ XP_TABLE = [0, 20, 50, 100, 180, 300, 480, 720, 1040, 1460, 2000]
 MAX_LEVEL = 10
 FINAL_FLOOR = 5
 BOSS_FLOOR_HP_SCALE = 0.25
+
+CLASSES = {
+    "warrior": {"name": "Warrior", "hp": 6, "mp": 2, "m_ack": 3, "r_ack": 1,
+                "defense": 2, "magic": 0, "evasion": 0,
+                "equipment": {"weapon": "iron_sword", "armor": "leather_armor", "accessory": None},
+                "desc": "High HP/ATK, starts armed"},
+    "mage": {"name": "Mage", "hp": 3, "mp": 7, "m_ack": 1, "r_ack": 1,
+             "defense": 0, "magic": 3, "evasion": 0,
+             "equipment": {"weapon": "magic_wand", "armor": None, "accessory": None},
+             "desc": "High MP/MGK, strong skills"},
+    "rogue": {"name": "Rogue", "hp": 4, "mp": 4, "m_ack": 2, "r_ack": 3,
+              "defense": 1, "magic": 1, "evasion": 2,
+              "equipment": {"weapon": None, "armor": "leather_armor", "accessory": "cloak"},
+              "desc": "High EVA/R-ACK, dodgy"},
+}

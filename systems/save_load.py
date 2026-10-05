@@ -20,6 +20,7 @@ class SaveLoadSystem:
             "player": {
                 "x": player.x,
                 "y": player.y,
+                "char_class": getattr(player, "char_class", "warrior"),
                 "hp": player.hp,
                 "max_hp": player.max_hp,
                 "mp": player.mp,

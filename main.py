@@ -3,7 +3,7 @@ import random
 import math
 import json
 
-from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL, SHOPS, FINAL_FLOOR, BOSS_FLOOR_HP_SCALE
+from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA, ITEMS, XP_TABLE, MAX_LEVEL, SHOPS, FINAL_FLOOR, BOSS_FLOOR_HP_SCALE, CLASSES
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
@@ -14,6 +14,7 @@ from ui.hud import HUD
 
 class GameState:
     TITLE = "TITLE"
+    CLASS_SELECT = "CLASS_SELECT"
     DIFFICULTY = "DIFFICULTY"
     EXPLORE = "EXPLORE"
     COMBAT = "COMBAT"
@@ -50,6 +51,8 @@ class App:
         self.screen_shake = 0
         
         self.menu_selection = 0
+        self.class_selection = 0
+        self.pending_class = "warrior"
         self.inventory_selection = 0
         self.save_slot_selection = 0
         self.shop_selection = 0
@@ -70,10 +73,12 @@ class App:
                 self.grid[y][x] = Room(x, y)
         self.grid[0][0].is_boss_room = True
 
-    def reset_game(self, difficulty=None):
+    def reset_game(self, difficulty=None, char_class=None):
         if difficulty:
             self.difficulty = difficulty
-        self.player = Player()
+        if char_class:
+            self.pending_class = char_class
+        self.player = Player(self.pending_class)
         self.boss = Boss(self.difficulty)
         self.current_floor = 1
         self.seed = random.randint(1, 999999)
@@ -112,6 +117,8 @@ class App:
 
         if self.state == GameState.TITLE:
             self.update_title()
+        elif self.state == GameState.CLASS_SELECT:
+            self.update_class_select()
         elif self.state == GameState.DIFFICULTY:
             self.update_difficulty()
         elif self.state == GameState.EXPLORE:
@@ -145,8 +152,8 @@ class App:
         elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
             self.sound.play(10)
             if self.menu_selection == 0:
-                self.state = GameState.DIFFICULTY
-                self.menu_selection = 1
+                self.state = GameState.CLASS_SELECT
+                self.class_selection = 0
             elif self.menu_selection == 1:
                 save = self.save_load.load_game()
                 if save:
@@ -160,6 +167,24 @@ class App:
                 self.state = GameState.SETTINGS
             elif self.menu_selection == 4:
                 pyxel.quit()
+
+    def update_class_select(self):
+        classes = list(CLASSES.keys())
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.class_selection = (self.class_selection - 1) % len(classes)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_DOWN):
+            self.class_selection = (self.class_selection + 1) % len(classes)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            self.sound.play(10)
+            self.pending_class = classes[self.class_selection]
+            self.state = GameState.DIFFICULTY
+            self.menu_selection = 1
+        elif pyxel.btnp(pyxel.KEY_ESCAPE):
+            self.state = GameState.TITLE
+            self.menu_selection = 0
+            self.sound.play(9)
 
     def update_difficulty(self):
         diffs = list(DIFFICULTY.keys())
@@ -687,6 +712,7 @@ class App:
             save_data = {
                 "player": {
                     "x": self.player.x, "y": self.player.y,
+                    "char_class": self.player.char_class,
                     "hp": self.player.hp, "max_hp": self.player.max_hp,
                     "mp": self.player.mp, "max_mp": self.player.max_mp,
                     "m_ack": self.player.base_m_ack, "r_ack": self.player.base_r_ack,
@@ -737,6 +763,8 @@ class App:
 
     def load_game_data(self, data):
         p = data["player"]
+        self.player = Player(p.get("char_class", "warrior"))
+        self.pending_class = self.player.char_class
         self.player.x, self.player.y = p["x"], p["y"]
         self.player.hp, self.player.max_hp = p["hp"], p["max_hp"]
         self.player.mp, self.player.max_mp = p["mp"], p["max_mp"]
@@ -911,6 +939,8 @@ class App:
         
         if self.state == GameState.TITLE:
             self.draw_title(shake_x, shake_y)
+        elif self.state == GameState.CLASS_SELECT:
+            self.draw_class_select(shake_x, shake_y)
         elif self.state == GameState.DIFFICULTY:
             self.draw_difficulty(shake_x, shake_y)
         elif self.state == GameState.EXPLORE:
@@ -938,6 +968,9 @@ class App:
 
     def draw_title(self, sx, sy):
         self.hud.draw_title(10 + sx, 30 + sy, self.menu_selection)
+
+    def draw_class_select(self, sx, sy):
+        self.hud.draw_class_select(self.class_selection, 30 + sx, 30 + sy)
 
     def draw_difficulty(self, sx, sy):
         self.hud.draw_difficulty_select(30 + sx, 30 + sy, self.menu_selection)
