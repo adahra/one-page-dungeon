@@ -7,6 +7,7 @@ from data.game_data import MONSTERS, FEATURES, TREASURES, DIFFICULTY, BOSS_DATA,
 from systems.sound import SoundSystem
 from systems.save_load import SaveLoadSystem
 from systems.particles import ParticleSystem
+from systems.meta import load_meta, save_meta, buy_upgrade, apply_upgrades, UPGRADES
 from entities.player import Player
 from entities.room import Room
 from entities.boss import Boss
@@ -26,6 +27,7 @@ class GameState:
     SETTINGS = "SETTINGS"
     LEVEL_UP = "LEVEL_UP"
     SHOP = "SHOP"
+    UPGRADES = "UPGRADES"
     GAME_OVER = "GAME_OVER"
     VICTORY = "VICTORY"
 
@@ -38,6 +40,7 @@ class App:
         self.save_load = SaveLoadSystem()
         self.particles = ParticleSystem()
         self.hud = HUD()
+        self.meta = load_meta()
         
         self.state = GameState.TITLE
         self.previous_state = None
@@ -79,6 +82,8 @@ class App:
         if char_class:
             self.pending_class = char_class
         self.player = Player(self.pending_class)
+        for note in apply_upgrades(self.player, self.meta):
+            self.hud.add_log(note)
         self.boss = Boss(self.difficulty)
         self.current_floor = 1
         self.seed = random.randint(1, 999999)
@@ -139,15 +144,17 @@ class App:
             self.update_level_up()
         elif self.state == GameState.SHOP:
             self.update_shop()
+        elif self.state == GameState.UPGRADES:
+            self.update_upgrades()
         elif self.state in [GameState.GAME_OVER, GameState.VICTORY]:
             self.update_game_over()
 
     def update_title(self):
         if pyxel.btnp(pyxel.KEY_UP):
-            self.menu_selection = (self.menu_selection - 1) % 5
+            self.menu_selection = (self.menu_selection - 1) % 6
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_DOWN):
-            self.menu_selection = (self.menu_selection + 1) % 5
+            self.menu_selection = (self.menu_selection + 1) % 6
             self.sound.play(9)
         elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
             self.sound.play(10)
@@ -166,6 +173,10 @@ class App:
             elif self.menu_selection == 3:
                 self.state = GameState.SETTINGS
             elif self.menu_selection == 4:
+                self.meta = load_meta()
+                self.state = GameState.UPGRADES
+                self.menu_selection = 0
+            elif self.menu_selection == 5:
                 pyxel.quit()
 
     def update_class_select(self):
@@ -628,12 +639,16 @@ class App:
                 self.state = GameState.VICTORY
                 score = self.calculate_score()
                 self.save_load.save_highscore("Hero", score, self.difficulty, self.current_floor, True)
-                self.hud.add_log("THE KING'S SKULL DEFEATED!")
+                self.meta["soul_fragments"] += 3
+                save_meta(self.meta)
+                self.hud.add_log("THE KING'S SKULL DEFEATED! +3 Soul Fragments")
                 self.sound.play(14)
                 self.particles.add_explosion(180, 60, 10, 30, 6)
                 self.screen_shake = 30
             else:
-                self.hud.add_log("The Skull retreats deeper!")
+                self.hud.add_log("The Skull retreats deeper! +1 Soul Fragment")
+                self.meta["soul_fragments"] += 1
+                save_meta(self.meta)
                 self.sound.play(13)
                 self.descend_floor()
             return
@@ -920,6 +935,23 @@ class App:
                 self.sound.play(11)
                 self.particles.add_gold_effect(120, 100)
 
+    def update_upgrades(self):
+        ids = list(UPGRADES.keys())
+        if pyxel.btnp(pyxel.KEY_UP):
+            self.menu_selection = (self.menu_selection - 1) % len(ids)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_DOWN):
+            self.menu_selection = (self.menu_selection + 1) % len(ids)
+            self.sound.play(9)
+        elif pyxel.btnp(pyxel.KEY_RETURN) or pyxel.btnp(pyxel.KEY_SPACE):
+            ok, msg = buy_upgrade(self.meta, ids[self.menu_selection])
+            self.hud.add_log(msg)
+            self.sound.play(6 if ok else 4)
+        elif pyxel.btnp(pyxel.KEY_ESCAPE):
+            self.state = GameState.TITLE
+            self.menu_selection = 0
+            self.sound.play(9)
+
     def update_game_over(self):
         if pyxel.btnp(pyxel.KEY_R):
             score = self.calculate_score()
@@ -961,6 +993,8 @@ class App:
             self.draw_level_up(shake_x, shake_y)
         elif self.state == GameState.SHOP:
             self.draw_shop(shake_x, shake_y)
+        elif self.state == GameState.UPGRADES:
+            self.draw_upgrades(shake_x, shake_y)
         elif self.state in [GameState.GAME_OVER, GameState.VICTORY]:
             self.draw_game_over(shake_x, shake_y)
         
@@ -1116,6 +1150,12 @@ class App:
         pyxel.rect(0, 0, 256, 192, 0)
         pyxel.rectb(5, 5, 246, 182, 13)
         self.hud.draw_shop(self.player, self.shop_type, self.shop_selection, SHOPS[self.shop_type], 10 + sx, 10 + sy, self.sell_selection)
+
+    def draw_upgrades(self, sx, sy):
+        pyxel.rect(0, 0, 256, 192, 0)
+        pyxel.rectb(5, 5, 246, 182, 13)
+        self.hud.draw_upgrades(self.meta, self.menu_selection, 20 + sx, 20 + sy)
+        pyxel.text(20 + sx, 170 + sy, "[Enter] Buy  [Esc] Back", 6)
 
     def draw_game_over(self, sx, sy):
         pyxel.rect(0, 0, 256, 192, 0)

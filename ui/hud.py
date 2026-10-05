@@ -187,7 +187,7 @@ class HUD:
     def draw_title(self, x, y, selected):
         pyxel.text(x + 40, y, "ONE PAGE DUNGEON", 10)
         pyxel.text(x + 30, y + 12, "LAIR OF THE SKULL", 8)
-        options = ["New Game", "Continue", "High Scores", "Settings", "Quit"]
+        options = ["New Game", "Continue", "High Scores", "Settings", "Upgrades", "Quit"]
         self.draw_menu(options, selected, x + 20, y + 40)
 
     def draw_class_select(self, selected, x, y):
@@ -199,6 +199,20 @@ class HUD:
             pyxel.text(x + 10, y + 15 + i * 22 + 8,
                        f"HP{spec['hp']} MP{spec['mp']} ATK{spec['m_ack']} R{spec['r_ack']} D{spec['defense']} M{spec['magic']} E{spec['evasion']}", 5)
             pyxel.text(x + 10, y + 15 + i * 22 + 14, spec["desc"][:34], 6)
+
+    def draw_upgrades(self, meta, selected, x, y):
+        from systems.meta import UPGRADES, upgrade_cost
+        pyxel.text(x, y, "SOUL UPGRADES", 10)
+        pyxel.text(x, y + 12, f"Soul Fragments: {meta.get('soul_fragments', 0)}", 11)
+        for i, (uid, spec) in enumerate(UPGRADES.items()):
+            level = meta.get("upgrades", {}).get(uid, 0)
+            color = 10 if i == selected else 7
+            if level >= spec["max"]:
+                status = "MAX"
+            else:
+                status = f"Lv{level}->{level + 1} ({upgrade_cost(uid, level)} frag)"
+            pyxel.text(x, y + 28 + i * 20, f"{'> ' if i == selected else '  '}{spec['name']}: {status}", color)
+            pyxel.text(x + 10, y + 28 + i * 20 + 9, spec["desc"][:36], 5)
 
     def draw_difficulty_select(self, x, y, selected):
         from data.game_data import DIFFICULTY
